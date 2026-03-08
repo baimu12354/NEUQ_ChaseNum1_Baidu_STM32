@@ -110,26 +110,6 @@ virtualFolder:
         - path: ../HALLIB/STM32H7xx_HAL_Driver/Src/stm32h7xx_ll_usb.c
         - path: ../HALLIB/STM32H7xx_HAL_Driver/Src/stm32h7xx_ll_delayblock.c
       folders: []
-    - name: Code
-      files:
-        - path: ../Code/TopSpeed_ENC.c
-        - path: ../Code/TopSpeed_ENC.h
-        - path: ../Code/TopSpeed_Motor.c
-        - path: ../Code/TopSpeed_Motor.h
-        - path: ../Code/TopSpeed_PIT.c
-        - path: ../Code/TopSpeed_PIT.h
-        - path: ../Code/TopSpeed_COM.c
-        - path: ../Code/TopSpeed_COM.h
-        - path: ../Code/TopSpeed_Movement.c
-        - path: ../Code/TopSpeed_Movement.h
-        - path: ../Code/TopSpeed_PID.c
-        - path: ../Code/TopSpeed_PID.h
-        - path: ../Code/TopSpeed_Servo.c
-        - path: ../Code/TopSpeed_Servo.h
-        - path: ../Code/3rd_Party_SDK/wit_c_sdk/REG.h
-        - path: ../Code/3rd_Party_SDK/wit_c_sdk/wit_c_sdk.c
-        - path: ../Code/3rd_Party_SDK/wit_c_sdk/wit_c_sdk.h
-      folders: []
 dependenceList: []
 outDir: build
 miscInfo:
