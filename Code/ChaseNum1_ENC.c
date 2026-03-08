@@ -8,7 +8,7 @@
 TIM_HandleTypeDef TIM_ENC_Handle[4]={0};
 int32_t ENC_data[4]={0};
 
-void TS_TIM2345_ENC_init(void){
+void CN_TIM2345_ENC_init(void){
     GPIO_InitTypeDef GPIO_Initure={0};
 
 /***************************************GPIO初始化部分***************************************/
@@ -83,7 +83,7 @@ void TS_TIM2345_ENC_init(void){
     }
 }
 
-void TS_read_ENC_INC(void){
+void CN_read_ENC_INC(void){
     for(int i=0;i<4;i++){
        ENC_data[i]=(uint16_t)__HAL_TIM_GET_COUNTER(&TIM_ENC_Handle[i])-0xFFFF/2;
        __HAL_TIM_SET_COUNTER(&TIM_ENC_Handle[i],0xFFFF/2);

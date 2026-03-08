@@ -79,7 +79,7 @@
 
 void Main_COM_init(void);//通信初始化
 void Main_COM_Response_CALLBACK(void);//处理指令
-void TS_send_Response(Main_CMD_ENUM CMD,uint8_t* response);//发送应答
+void CN_send_Response(Main_CMD_ENUM CMD,uint8_t* response);//发送应答
 void Main_COM_send_pack(Main_CMD_ENUM CMD,uint8_t *load,uint8_t load_len);//发送数据包
 
 /*
@@ -195,45 +195,45 @@ typedef enum{
 */
 
 typedef enum{
-    TS_UART_1,  //TX:PB14 RX:PB15   //调试口
-    TS_UART_2,  //TX:PD5  RX:PD6    //陀螺仪通信
-    TS_UART_3,  //TX:PB10 RX:PB11   //上位机通信
-    TS_UART_4,  //TX:PC10 RX:PC11   //步进电机1通信
-    TS_UART_5,  //TX:PB12 RX:PB13   //步进电机2通信
-    TS_UART_6,  //TX:PG14 RX:PG9    //步进电机3通信
-    TS_UART_7,  //TX:PB4  RX:PB3    //Tof通信
-}TS_UART_ENUM;
+    CN_UART_1,  //TX:PB14 RX:PB15   //调试口
+    CN_UART_2,  //TX:PD5  RX:PD6    //陀螺仪通信
+    CN_UART_3,  //TX:PB10 RX:PB11   //上位机通信
+    CN_UART_4,  //TX:PC10 RX:PC11   //步进电机1通信
+    CN_UART_5,  //TX:PB12 RX:PB13   //步进电机2通信
+    CN_UART_6,  //TX:PG14 RX:PG9    //步进电机3通信
+    CN_UART_7,  //TX:PB4  RX:PB3    //Tof通信
+}CN_UART_ENUM;
 
 typedef enum{
     RX_WAITING_HEAD,
     RX_WAITING_TAIL,
-}TS_UART_RX_STATUS_ENUM;
+}CN_UART_RX_STATUS_ENUM;
 
 
-void TS_UART1_init(void);
-void TS_UART2_init(uint32_t baud);
-void TS_UART3_init(void);
-void TS_UART4_init(void);
-void TS_UART5_init(void);
-void TS_UART6_init(void);
-void TS_UART7_init(void);
+void CN_UART1_init(void);
+void CN_UART2_init(uint32_t baud);
+void CN_UART3_init(void);
+void CN_UART4_init(void);
+void CN_UART5_init(void);
+void CN_UART6_init(void);
+void CN_UART7_init(void);
 
-void TS_UART_deinit(TS_UART_ENUM Moudle);
+void CN_UART_deinit(CN_UART_ENUM Moudle);
 
-void TS_UART1_RX_CALLBACK(uint8_t dat);
-void TS_UART2_RX_CALLBACK(uint8_t dat);
-void TS_UART3_RX_CALLBACK(uint8_t dat);
-void TS_UART4_RX_CALLBACK(uint8_t dat);
-void TS_UART5_RX_CALLBACK(uint8_t dat);
-void TS_UART6_RX_CALLBACK(uint8_t dat);
-void TS_UART7_RX_CALLBACK(uint8_t dat);
+void CN_UART1_RX_CALLBACK(uint8_t dat);
+void CN_UART2_RX_CALLBACK(uint8_t dat);
+void CN_UART3_RX_CALLBACK(uint8_t dat);
+void CN_UART4_RX_CALLBACK(uint8_t dat);
+void CN_UART5_RX_CALLBACK(uint8_t dat);
+void CN_UART6_RX_CALLBACK(uint8_t dat);
+void CN_UART7_RX_CALLBACK(uint8_t dat);
 
-void TS_UART_send_string_block(TS_UART_ENUM Moudle,const uint8_t *str);
-void TS_UART_send_string_IT(TS_UART_ENUM Moudle,uint8_t *str);
-void TS_UART_send_data_IT(TS_UART_ENUM Moudle,uint8_t *data,uint32_t len);
-void TS_UART_write_fifo(TS_UART_ENUM Moudle,uint8_t *data,uint32_t len);
+void CN_UART_send_string_block(CN_UART_ENUM Moudle,const uint8_t *str);
+void CN_UART_send_string_IT(CN_UART_ENUM Moudle,uint8_t *str);
+void CN_UART_send_data_IT(CN_UART_ENUM Moudle,uint8_t *data,uint32_t len);
+void CN_UART_write_fifo(CN_UART_ENUM Moudle,uint8_t *data,uint32_t len);
 
-void TS_UART_write_string_FIFO(TS_UART_ENUM Moudle,uint8_t *str);
+void CN_UART_write_string_FIFO(CN_UART_ENUM Moudle,uint8_t *str);
 
 typedef struct{
     uint8_t *temp;
@@ -244,15 +244,15 @@ typedef struct{
 
     uint8_t is_FIFO_full;
 
-}TS_FIFO_struct;
+}CN_FIFO_struct;
 
 
-void TS_FIFO_init(TS_FIFO_struct *FIFO,uint8_t *pdata,uint16_t templen);
-uint8_t TS_FIFO_read(TS_FIFO_struct *FIFO,uint8_t *pdata,uint16_t readlen);
-uint8_t TS_FIFO_write(TS_FIFO_struct *FIFO,uint8_t *pdata,uint16_t writelen);
-uint8_t TS_FIFO_read_Byte(TS_FIFO_struct *FIFO,uint8_t *pdata);
-uint8_t TS_FIFO_write_Byte(TS_FIFO_struct *FIFO,uint8_t data);
-uint16_t TS_get_FIFO_space(TS_FIFO_struct *FIFO);
-uint16_t TS_get_FIFO_occupied(TS_FIFO_struct *FIFO);
+void CN_FIFO_init(CN_FIFO_struct *FIFO,uint8_t *pdata,uint16_t templen);
+uint8_t CN_FIFO_read(CN_FIFO_struct *FIFO,uint8_t *pdata,uint16_t readlen);
+uint8_t CN_FIFO_write(CN_FIFO_struct *FIFO,uint8_t *pdata,uint16_t writelen);
+uint8_t CN_FIFO_read_Byte(CN_FIFO_struct *FIFO,uint8_t *pdata);
+uint8_t CN_FIFO_write_Byte(CN_FIFO_struct *FIFO,uint8_t data);
+uint16_t CN_get_FIFO_space(CN_FIFO_struct *FIFO);
+uint16_t CN_get_FIFO_occupied(CN_FIFO_struct *FIFO);
 
-#endif // !_TOPSPEED_COM_H_
+#endif // !_CHASENUM1_COM_H_

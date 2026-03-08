@@ -9,7 +9,7 @@ uint8_t mission_check=0;
 
 /******************************************************************应用层*********************************************************/
 void Main_COM_init(void){
-    TS_UART3_init();
+    CN_UART3_init();
     Package_get.done=1;//接收缓冲空闲状态
 }
 
@@ -30,7 +30,7 @@ void Main_COM_send_pack(Main_CMD_ENUM CMD,uint8_t *load,uint8_t load_len){
 
     // TS_UART_write_fifo(TS_UART_1,data,7+load_len);
 
-    TS_UART_write_fifo(TS_UART_3,data,7+load_len);
+    CN_UART_write_fifo(CN_UART_3,data,7+load_len);
 }
 
 void Main_COM_Response_CALLBACK(void){
@@ -39,7 +39,7 @@ void Main_COM_Response_CALLBACK(void){
             case Main_CMD_HELLO:{
                 printf("get CMD_HELLO\n");
                 uint8_t response[2]={Main_CMD_INLINE,0x00};
-                TS_send_Response(Main_CMD_REPLY,response);  
+                CN_send_Response(Main_CMD_REPLY,response);  
 
                 Package_get.done=1;
                 break;
@@ -48,7 +48,7 @@ void Main_COM_Response_CALLBACK(void){
             case Main_CMD_STATUS:{
                 printf("get CMD_STATUS\n");
                 uint8_t response[2]={Main_CMD_ASTATUS,SYS_STATUS.all};
-                TS_send_Response(Main_CMD_ASTATUS,response);  
+                CN_send_Response(Main_CMD_ASTATUS,response);  
 
                 Package_get.done=1;
                 break;
@@ -64,47 +64,47 @@ void Main_COM_Response_CALLBACK(void){
                         SYS_STATUS.bits.SYS_INLINE=1;
                         SYS_STATUS.bits.SYS_MOVING=0;
                         SYS_STATUS.bits.SYS_ROTATING=0;
-                        TS_set_movement(CMD_SETM_load.Movement,(Movement_type_ENUM)CMD_SETM_load.Movement_type,Package_get.check);
+                        CN_set_movement(CMD_SETM_load.Movement,(Movement_type_ENUM)CMD_SETM_load.Movement_type,Package_get.check);
                         mission_check=Package_get.check;
                         uint8_t response[2]={CMD_SETMOVEMENT,Package_get.check};
-                        TS_send_Response(CMD_RECVCMD,response);                         
+                        CN_send_Response(CMD_RECVCMD,response);                         
                     }
                     else{
                         printf("not inited \n");
                         uint8_t response[2]={CMD_SETMOVEMENT,SYS_STATUS.all};
-                        TS_send_Response(Main_CMD_ERR,response);   
+                        CN_send_Response(Main_CMD_ERR,response);   
                     }                    
                 }
                 else if(CMD_SETM_load.Movement_type==Movement_Translation || CMD_SETM_load.Movement_type==Movement_Rotation){
                     if(Movement_Precise_Mode){
-                        TS_Movement_Change_To_Normal_Mode();
+                        CN_Movement_Change_To_Normal_Mode();
                     }
                     if(Motor_Precise_Mode){
-                        TS_Motor_Change_To_Normal_Mode();
+                        CN_Motor_Change_To_Normal_Mode();
                     }
                     SYS_STATUS.bits.SYS_INLINE=0;
-                    TS_set_movement(CMD_SETM_load.Movement,(Movement_type_ENUM)CMD_SETM_load.Movement_type,Package_get.check);
+                    CN_set_movement(CMD_SETM_load.Movement,(Movement_type_ENUM)CMD_SETM_load.Movement_type,Package_get.check);
                     mission_check=Package_get.check;
                     uint8_t response[2]={CMD_SETMOVEMENT,Package_get.check};
-                    TS_send_Response(CMD_RECVCMD,response);   
+                    CN_send_Response(CMD_RECVCMD,response);   
                 }
                 else if(CMD_SETM_load.Movement_type==Movement_Translation_Precise || CMD_SETM_load.Movement_type==Movement_Rotation_Precise){
                     if(!Movement_Precise_Mode){
-                        TS_Movement_Change_To_Precise_Mode();
+                        CN_Movement_Change_To_Precise_Mode();
                     }
                     if(!Motor_Precise_Mode){
-                        TS_Motor_Change_To_Precise_Mode();
+                        CN_Motor_Change_To_Precise_Mode();
                     }
                     SYS_STATUS.bits.SYS_INLINE=0;
-                    TS_set_movement(CMD_SETM_load.Movement,(Movement_type_ENUM)CMD_SETM_load.Movement_type,Package_get.check);
+                    CN_set_movement(CMD_SETM_load.Movement,(Movement_type_ENUM)CMD_SETM_load.Movement_type,Package_get.check);
                     mission_check=Package_get.check;
                     uint8_t response[2]={CMD_SETMOVEMENT,Package_get.check};
-                    TS_send_Response(CMD_RECVCMD,response);   
+                    CN_send_Response(CMD_RECVCMD,response);   
                 }
                 else{
                     printf("unknown movement type:%d\n",CMD_SETM_load.Movement_type);
                     // uint8_t response[2]={CMD_SETMOVEMENT,SYS_STATUS.all};
-                    // TS_send_Response(Main_CMD_ERR,response);   
+                    // CN_send_Response(Main_CMD_ERR,response);   
                 }
                 Package_get.done=1;
                 break;
@@ -114,12 +114,12 @@ void Main_COM_Response_CALLBACK(void){
                 printf("get CMD_REQ:%x\n",Package_get.load[0]);
                 switch(Package_get.load[0]){
                     case REQ_type_YAW:{
-                        float logical_yaw=TS_get_logical_yaw();
+                        float logical_yaw=CN_get_logical_yaw();
                         Main_COM_send_pack(CMD_APARA,(uint8_t*)&logical_yaw,4);
                         break;
                     }
                     case REQ_type_Mile:{
-                        float mile=TS_get_Milemeter();
+                        float mile=CN_get_Milemeter();
                         printf("send mile:%f\n",mile);
                         Main_COM_send_pack(CMD_APARA,(uint8_t*)&mile,4);
                         break;
@@ -134,11 +134,11 @@ void Main_COM_Response_CALLBACK(void){
                 if(SYS_STATUS.bits.SYS_INITED==1){
                     SYS_STATUS.bits.SYS_INLINE=1;
                     uint8_t response[2]={Main_CMD_INLINE,Package_get.check};
-                    TS_send_Response(Main_CMD_RECVCMD,response);                    
+                    CN_send_Response(Main_CMD_RECVCMD,response);                    
                 }
                 else{
                     uint8_t response[2]={Main_CMD_INLINE,SYS_STATUS.all};
-                    TS_send_Response(Main_CMD_ERR,response);      
+                    CN_send_Response(Main_CMD_ERR,response);      
                 }
 
                 Package_get.done=1;
@@ -147,9 +147,9 @@ void Main_COM_Response_CALLBACK(void){
 
             case Main_CMD_OUTLINE:{
                 printf("get CMD_OUTLINE\n");
-                TS_Motor_outline();
+                CN_Motor_outline();
                 uint8_t response[2]={Main_CMD_OUTLINE,Package_get.check};
-                TS_send_Response(Main_CMD_RECVCMD,response);                    
+                CN_send_Response(Main_CMD_RECVCMD,response);                    
                 Package_get.done=1;
                 break;
             }
@@ -157,8 +157,8 @@ void Main_COM_Response_CALLBACK(void){
             case Main_CMD_RESTART:{
                 printf("get CMD_RST\n");
                 uint8_t response[2]={Main_CMD_RESTART,Package_get.check};
-                TS_send_Response(Main_CMD_RECVCMD,response);  
-                TS_delay_ms(500);
+                CN_send_Response(Main_CMD_RECVCMD,response);  
+                CN_delay_ms(500);
                 NVIC_SystemReset();
                 Package_get.done=1;
                 break;
@@ -166,9 +166,9 @@ void Main_COM_Response_CALLBACK(void){
 
             case Main_CMD_INTERRUPT:{
                 printf("get CMD_INT\n");
-                TS_Intr_Movement();
+                CN_Intr_Movement();
                 uint8_t response[2]={Main_CMD_INTERRUPT,Package_get.check};
-                TS_send_Response(Main_CMD_RECVCMD,response);  
+                CN_send_Response(Main_CMD_RECVCMD,response);  
                 Package_get.done=1;
                 break;
             }
@@ -179,19 +179,19 @@ void Main_COM_Response_CALLBACK(void){
                     case SET_YAW:{
                         float logical_yaw=0;
                         memcpy(&logical_yaw,&Package_get.load[1],4);
-                        TS_Set_YAW(logical_yaw);
+                        CN_Set_YAW(logical_yaw);
                         printf("set yaw:%d\n",logical_yaw);
                         uint8_t response[2]={Main_CMD_SETPARA,Package_get.check};
-                        TS_send_Response(Main_CMD_RECVCMD,response);
+                        CN_send_Response(Main_CMD_RECVCMD,response);
                         break;
                     }
                     case SET_MILE:{
                         float mile=0;
                         memcpy(&mile,&Package_get.load[1],4);
-                        TS_Milemeter_set(mile);
+                        CN_Milemeter_set(mile);
                         printf("set mile:%f\n",mile);
                         uint8_t response[2]={Main_CMD_SETPARA,Package_get.check};
-                        TS_send_Response(Main_CMD_RECVCMD,response);
+                        CN_send_Response(Main_CMD_RECVCMD,response);
                         break;
                     }
                 }
@@ -210,13 +210,13 @@ void Main_COM_Response_CALLBACK(void){
             //         Act_get.Action_type=(Action_type_ENUM)Package_get.load[0];
             //         Act_get.Action_method=(Action_method_ENUM)Package_get.load[1];
             //         memcpy(&Act_get.value,&Package_get.load[2],4);
-            //         TS_set_Action(Act_get,Package_get.check);
+            //         CN_set_Action(Act_get,Package_get.check);
             //         // uint8_t response[2]={Main_CMD_SETACTION,Package_get.check};
-            //         // TS_send_Response(Main_CMD_RECVCMD,response);                    
+            //         // CN_send_Response(Main_CMD_RECVCMD,response);                    
             //     }
             //     else{
             //         uint8_t response[2]={Main_CMD_SETACTION,SYS_STATUS.all};
-            //         TS_send_Response(Main_CMD_ERR,response);  
+            //         CN_send_Response(Main_CMD_ERR,response);  
             //     }
 
             //     Package_get.done=1;
@@ -240,19 +240,19 @@ void Main_COM_Response_CALLBACK(void){
     }
 }
 
-void TS_send_Response(Main_CMD_ENUM CMD,uint8_t* response){
+void CN_send_Response(Main_CMD_ENUM CMD,uint8_t* response){
     switch(CMD){
         case Main_CMD_REPLY:{
             printf("send CMD_REP\n");
             uint8_t data[7]={0xAA,0xBB,CMD,0x00,0x00,0x0F,0x0A};
-            TS_UART_write_fifo(TS_UART_3,data,7);
+            CN_UART_write_fifo(CN_UART_3,data,7);
             break;
         }
         
         case Main_CMD_ASTATUS:{
             printf("send CMD_SUC\n");
             uint8_t data[8]={0xAA,0xBB,CMD,0x01,SYS_STATUS.all,SYS_STATUS.all,0x0F,0x0A};
-            TS_UART_write_fifo(TS_UART_3,data,8);
+            CN_UART_write_fifo(CN_UART_3,data,8);
             break;                
         }
 
@@ -265,7 +265,7 @@ void TS_send_Response(Main_CMD_ENUM CMD,uint8_t* response){
                 check+=response[i];
             }
             data[8]=check;
-            TS_UART_write_fifo(TS_UART_3,data,11);
+            CN_UART_write_fifo(CN_UART_3,data,11);
             break;
         }
 
@@ -275,49 +275,49 @@ void TS_send_Response(Main_CMD_ENUM CMD,uint8_t* response){
             data[4]=response[0];
             data[5]=response[1];
             data[6]=(uint8_t)(data[4]+data[5]);
-            TS_UART_write_fifo(TS_UART_3,data,9);
+            CN_UART_write_fifo(CN_UART_3,data,9);
             break;
         }
         
         case Main_CMD_CMDDONE:{
             printf("send CMD_CMDDONE\n");
             uint8_t data[8]={0xAA,0xBB,CMD,0x01,response[0],response[0],0x0F,0x0A};
-            TS_UART_write_fifo(TS_UART_3,data,8);
+            CN_UART_write_fifo(CN_UART_3,data,8);
             break;
         }
         
         case Main_CMD_ERR:{
             printf("send CMD_ERR\n");
             uint8_t data[9]={0xAA,0xBB,CMD,0x02,response[0],response[1],(uint8_t)(response[0]+response[1]),0x0F,0x0A};
-            TS_UART_write_fifo(TS_UART_3,data,9);
+            CN_UART_write_fifo(CN_UART_3,data,9);
             break;
         }
 
         case Main_CMD_STARTSERVER:{
             printf("send CMD_STARTSERVER\n");
             uint8_t data[7]={0xAA,0xBB,CMD,0x00,0x00,0x0F,0x0A};
-            TS_UART_write_fifo(TS_UART_3,data,7);
+            CN_UART_write_fifo(CN_UART_3,data,7);
             break;
         }
 
         case Main_CMD_CLOSESERVER:{
             printf("send CMD_CLOSESERVER\n");
             uint8_t data[7]={0xAA,0xBB,CMD,0x00,0x00,0x0F,0x0A};
-            TS_UART_write_fifo(TS_UART_3,data,7);
+            CN_UART_write_fifo(CN_UART_3,data,7);
             break;
         }
 
         case Main_CMD_STARTMISSION:{
             printf("send CMD_STARTMISSION\n");
             uint8_t data[7]={0xAA,0xBB,CMD,0x00,0x00,0x0F,0x0A};
-            TS_UART_write_fifo(TS_UART_3,data,7);
+            CN_UART_write_fifo(CN_UART_3,data,7);
             break;
         }
 
         case Main_CMD_SUSPENDMISSION:{
             printf("send CMD_SUSPENDMISSION\n");
             uint8_t data[7]={0xAA,0xBB,CMD,0x00,0x00,0x0F,0x0A};
-            TS_UART_write_fifo(TS_UART_3,data,7);
+            CN_UART_write_fifo(CN_UART_3,data,7);
             break;
         }
 
@@ -435,23 +435,23 @@ void Main_COM_RX_CALLBACK(uint8_t dat){
     }
 }
 
-void TS_UART3_RX_CALLBACK(uint8_t dat){
+void CN_UART3_RX_CALLBACK(uint8_t dat){
     Main_COM_RX_CALLBACK(dat);
 }
 
-void TS_UART4_RX_CALLBACK(uint8_t dat){
+void CN_UART4_RX_CALLBACK(uint8_t dat){
 }
-void TS_UART5_RX_CALLBACK(uint8_t dat){
+void CN_UART5_RX_CALLBACK(uint8_t dat){
 }
-void TS_UART6_RX_CALLBACK(uint8_t dat){
+void CN_UART6_RX_CALLBACK(uint8_t dat){
 }
-void TS_UART7_RX_CALLBACK(uint8_t dat){
+void CN_UART7_RX_CALLBACK(uint8_t dat){
 }
 
 /******************************************************************应用层*********************************************************/
 
 /******************************************************************数据链路层*********************************************************/
-#define TS_UART_TEMP_SIZE   (256)
+#define CN_UART_TEMP_SIZE   (256)
 
 UART_HandleTypeDef UART1_Handle={0};
 UART_HandleTypeDef UART2_Handle={0};
@@ -461,26 +461,26 @@ UART_HandleTypeDef UART5_Handle={0};
 UART_HandleTypeDef UART6_Handle={0};
 UART_HandleTypeDef UART7_Handle={0};
 
-TS_FIFO_struct TS_UART1_FIFO={0};
-uint8_t TS_UART1_temp[TS_UART_TEMP_SIZE]={0};
+CN_FIFO_struct CN_UART1_FIFO={0};
+uint8_t CN_UART1_temp[CN_UART_TEMP_SIZE]={0};
 
-TS_FIFO_struct TS_UART2_FIFO={0};
-uint8_t TS_UART2_temp[TS_UART_TEMP_SIZE]={0};
+CN_FIFO_struct CN_UART2_FIFO={0};
+uint8_t CN_UART2_temp[CN_UART_TEMP_SIZE]={0};
 
-TS_FIFO_struct TS_UART3_FIFO={0};
-uint8_t TS_UART3_temp[TS_UART_TEMP_SIZE]={0};
+CN_FIFO_struct CN_UART3_FIFO={0};
+uint8_t CN_UART3_temp[CN_UART_TEMP_SIZE]={0};
 
-TS_FIFO_struct TS_UART4_FIFO={0};
-uint8_t TS_UART4_temp[TS_UART_TEMP_SIZE]={0};
+CN_FIFO_struct CN_UART4_FIFO={0};
+uint8_t CN_UART4_temp[CN_UART_TEMP_SIZE]={0};
 
-TS_FIFO_struct TS_UART5_FIFO={0};
-uint8_t TS_UART5_temp[TS_UART_TEMP_SIZE]={0};
+CN_FIFO_struct CN_UART5_FIFO={0};
+uint8_t CN_UART5_temp[CN_UART_TEMP_SIZE]={0};
 
-TS_FIFO_struct TS_UART6_FIFO={0};
-uint8_t TS_UART6_temp[TS_UART_TEMP_SIZE]={0};
+CN_FIFO_struct CN_UART6_FIFO={0};
+uint8_t CN_UART6_temp[CN_UART_TEMP_SIZE]={0};
 
-TS_FIFO_struct TS_UART7_FIFO={0};
-uint8_t TS_UART7_temp[TS_UART_TEMP_SIZE]={0};
+CN_FIFO_struct CN_UART7_FIFO={0};
+uint8_t CN_UART7_temp[CN_UART_TEMP_SIZE]={0};
 
 uint8_t UART_1_RX_dat=0;
 uint8_t UART_2_RX_dat=0;
@@ -490,7 +490,7 @@ uint8_t UART_5_RX_dat=0;
 uint8_t UART_6_RX_dat=0;
 uint8_t UART_7_RX_dat=0;
 
-void TS_UART1_init(void){
+void CN_UART1_init(void){
     GPIO_InitTypeDef GPIO_Initure={0};
 
     //使用车载接口
@@ -528,12 +528,12 @@ void TS_UART1_init(void){
     __HAL_UART_ENABLE_IT(&UART1_Handle,UART_IT_TC);
     __HAL_UART_ENABLE_IT(&UART1_Handle,UART_IT_RXNE);
 
-    TS_FIFO_init(&TS_UART1_FIFO,TS_UART1_temp,TS_UART_TEMP_SIZE);//挂载发送缓冲区
+    CN_FIFO_init(&CN_UART1_FIFO,CN_UART1_temp,CN_UART_TEMP_SIZE);//挂载发送缓冲区
 
     HAL_UART_Receive_IT(&UART1_Handle,&UART_1_RX_dat,1);
 }
 
-void TS_UART2_init(uint32_t baud){
+void CN_UART2_init(uint32_t baud){
     GPIO_InitTypeDef GPIO_Initure={0};
 
     __HAL_RCC_GPIOD_CLK_ENABLE();
@@ -566,7 +566,7 @@ void TS_UART2_init(uint32_t baud){
     HAL_UART_Receive_IT(&UART2_Handle,&UART_2_RX_dat,1);
 }
 
-void TS_UART3_init(void){
+void CN_UART3_init(void){
     GPIO_InitTypeDef GPIO_Initure={0};
 
     __HAL_RCC_GPIOB_CLK_ENABLE();
@@ -592,7 +592,7 @@ void TS_UART3_init(void){
     HAL_NVIC_SetPriority(USART3_IRQn, 1, 0);// 设置中断优先级
     HAL_NVIC_EnableIRQ(USART3_IRQn);// 启用 TIM2 中断 
 
-    TS_FIFO_init(&TS_UART3_FIFO,TS_UART3_temp,TS_UART_TEMP_SIZE);//挂载发送缓冲区
+    CN_FIFO_init(&CN_UART3_FIFO,CN_UART3_temp,CN_UART_TEMP_SIZE);//挂载发送缓冲区
     __HAL_UART_CLEAR_IT(&UART3_Handle,UART_IT_TC);
     __HAL_UART_ENABLE_IT(&UART3_Handle,UART_IT_TC);
     __HAL_UART_CLEAR_IT(&UART3_Handle,UART_IT_TC);
@@ -602,7 +602,7 @@ void TS_UART3_init(void){
     HAL_UART_Receive_IT(&UART3_Handle,&UART_3_RX_dat,1);
 }
 
-void TS_UART4_init(void){
+void CN_UART4_init(void){
     GPIO_InitTypeDef GPIO_Initure={0};
 
     __HAL_RCC_GPIOC_CLK_ENABLE();
@@ -625,16 +625,16 @@ void TS_UART4_init(void){
 
     HAL_UART_Init(&UART4_Handle);
     HAL_NVIC_SetPriority(UART4_IRQn, 2, 0);// 设置中断优先级
-    HAL_NVIC_EnableIRQ(UART4_IRQn);// 启用 TIM2 中断 
+    HAL_NVIC_EnableIRQ(UART4_IRQn);// 启用 UART4 中断 
 
-    TS_FIFO_init(&TS_UART4_FIFO,TS_UART4_temp,TS_UART_TEMP_SIZE);//挂载发送缓冲区
+    CN_FIFO_init(&CN_UART4_FIFO,CN_UART4_temp,CN_UART_TEMP_SIZE);//挂载发送缓冲区
     __HAL_UART_ENABLE_IT(&UART4_Handle,UART_IT_TC);
     __HAL_UART_ENABLE_IT(&UART4_Handle,UART_IT_RXNE);
 
     HAL_UART_Receive_IT(&UART4_Handle,&UART_4_RX_dat,1);
 }
 
-void TS_UART5_init(void){
+void CN_UART5_init(void){
     GPIO_InitTypeDef GPIO_Initure={0};
 
     __HAL_RCC_GPIOB_CLK_ENABLE();
@@ -657,16 +657,16 @@ void TS_UART5_init(void){
 
     HAL_UART_Init(&UART5_Handle);
     HAL_NVIC_SetPriority(UART5_IRQn, 2, 0);// 设置中断优先级
-    HAL_NVIC_EnableIRQ(UART5_IRQn);// 启用 TIM2 中断 
+    HAL_NVIC_EnableIRQ(UART5_IRQn);// 启用 UART5 中断 
 
-    TS_FIFO_init(&TS_UART5_FIFO,TS_UART5_temp,TS_UART_TEMP_SIZE);//挂载发送缓冲区
+    CN_FIFO_init(&CN_UART5_FIFO,CN_UART5_temp,CN_UART_TEMP_SIZE);//挂载发送缓冲区
     __HAL_UART_ENABLE_IT(&UART5_Handle,UART_IT_TC);
     __HAL_UART_ENABLE_IT(&UART5_Handle,UART_IT_RXNE);
 
     HAL_UART_Receive_IT(&UART5_Handle,&UART_5_RX_dat,1);
 }
 
-void TS_UART6_init(void){
+void CN_UART6_init(void){
     GPIO_InitTypeDef GPIO_Initure={0};
 
     __HAL_RCC_GPIOG_CLK_ENABLE();
@@ -689,16 +689,16 @@ void TS_UART6_init(void){
 
     HAL_UART_Init(&UART6_Handle);
     HAL_NVIC_SetPriority(USART6_IRQn, 2, 0);// 设置中断优先级
-    HAL_NVIC_EnableIRQ(USART6_IRQn);// 启用 TIM2 中断 
+    HAL_NVIC_EnableIRQ(USART6_IRQn);// 启用 USART6 中断 
 
-    TS_FIFO_init(&TS_UART6_FIFO,TS_UART6_temp,TS_UART_TEMP_SIZE);//挂载发送缓冲区
+    CN_FIFO_init(&CN_UART6_FIFO,CN_UART6_temp,CN_UART_TEMP_SIZE);//挂载发送缓冲区
     __HAL_UART_ENABLE_IT(&UART6_Handle,UART_IT_TC);
     __HAL_UART_ENABLE_IT(&UART6_Handle,UART_IT_RXNE);
 
     HAL_UART_Receive_IT(&UART6_Handle,&UART_6_RX_dat,1);
 }
 
-void TS_UART7_init(void){
+void CN_UART7_init(void){
     GPIO_InitTypeDef GPIO_Initure={0};
 
     __HAL_RCC_GPIOB_CLK_ENABLE();
@@ -721,43 +721,43 @@ void TS_UART7_init(void){
 
     HAL_UART_Init(&UART7_Handle);
     HAL_NVIC_SetPriority(UART7_IRQn, 2, 0);// 设置中断优先级
-    HAL_NVIC_EnableIRQ(UART7_IRQn);// 启用 TIM2 中断 
+    HAL_NVIC_EnableIRQ(UART7_IRQn);// 启用 UART7 中断 
 
-    TS_FIFO_init(&TS_UART7_FIFO,TS_UART7_temp,TS_UART_TEMP_SIZE);//挂载发送缓冲区
+    CN_FIFO_init(&CN_UART7_FIFO,CN_UART7_temp,CN_UART_TEMP_SIZE);//挂载发送缓冲区
     __HAL_UART_ENABLE_IT(&UART7_Handle,UART_IT_TC);
     __HAL_UART_ENABLE_IT(&UART7_Handle,UART_IT_RXNE);
 
     HAL_UART_Receive_IT(&UART7_Handle,&UART_7_RX_dat,1);
 }
 
-void TS_UART_deinit(TS_UART_ENUM Moudle){
+void CN_UART_deinit(CN_UART_ENUM Moudle){
     UART_HandleTypeDef *Moudle_use;
     switch(Moudle){
-        case TS_UART_1:{
+        case CN_UART_1:{
             Moudle_use=&UART1_Handle;
             break;
         }
-        case TS_UART_2:{
+        case CN_UART_2:{
             Moudle_use=&UART2_Handle;
             break;
         }
-        case TS_UART_3:{
+        case CN_UART_3:{
             Moudle_use=&UART3_Handle;
             break;
         }
-        case TS_UART_4:{
+        case CN_UART_4:{
             Moudle_use=&UART4_Handle;
             break;
         }
-        case TS_UART_5:{
+        case CN_UART_5:{
             Moudle_use=&UART5_Handle;
             break;
         }
-        case TS_UART_6:{
+        case CN_UART_6:{
             Moudle_use=&UART6_Handle;
             break;
         }
-        case TS_UART_7:{
+        case CN_UART_7:{
             Moudle_use=&UART7_Handle;
             break;
         }
@@ -766,35 +766,35 @@ void TS_UART_deinit(TS_UART_ENUM Moudle){
     HAL_UART_DeInit(Moudle_use);
 }
 
-void TS_UART_send_string_block(TS_UART_ENUM Moudle,const uint8_t *str){
+void CN_UART_send_string_block(CN_UART_ENUM Moudle,const uint8_t *str){
     uint32_t len=strlen(str);
     USART_TypeDef *Moudle_use;
     switch(Moudle){
-        case TS_UART_1:{
+        case CN_UART_1:{
             Moudle_use=USART1;
             break;
         }
-        case TS_UART_2:{
+        case CN_UART_2:{
             Moudle_use=USART2;
             break;
         }
-        case TS_UART_3:{
+        case CN_UART_3:{
             Moudle_use=USART3;
             break;
         }
-        case TS_UART_4:{
+        case CN_UART_4:{
             Moudle_use=UART4;
             break;
         }
-        case TS_UART_5:{
+        case CN_UART_5:{
             Moudle_use=UART5;
             break;
         }
-        case TS_UART_6:{
+        case CN_UART_6:{
             Moudle_use=USART6;
             break;
         }
-        case TS_UART_7:{
+        case CN_UART_7:{
             Moudle_use=UART7;
             break;
         }
@@ -806,35 +806,35 @@ void TS_UART_send_string_block(TS_UART_ENUM Moudle,const uint8_t *str){
     }    
 }
 
-void TS_UART_send_string_IT(TS_UART_ENUM Moudle,uint8_t *str){
+void CN_UART_send_string_IT(CN_UART_ENUM Moudle,uint8_t *str){
     uint16_t len=strlen(str);
     UART_HandleTypeDef *Moudle_use;
     switch(Moudle){
-        case TS_UART_1:{
+        case CN_UART_1:{
             Moudle_use=&UART1_Handle;
             break;
         }
-        case TS_UART_2:{
+        case CN_UART_2:{
             Moudle_use=&UART2_Handle;
             break;
         }
-        case TS_UART_3:{
+        case CN_UART_3:{
             Moudle_use=&UART3_Handle;
             break;
         }
-        case TS_UART_4:{
+        case CN_UART_4:{
             Moudle_use=&UART4_Handle;
             break;
         }
-        case TS_UART_5:{
+        case CN_UART_5:{
             Moudle_use=&UART5_Handle;
             break;
         }
-        case TS_UART_6:{
+        case CN_UART_6:{
             Moudle_use=&UART6_Handle;
             break;
         }
-        case TS_UART_7:{
+        case CN_UART_7:{
             Moudle_use=&UART7_Handle;
             break;
         }
@@ -842,34 +842,34 @@ void TS_UART_send_string_IT(TS_UART_ENUM Moudle,uint8_t *str){
     HAL_UART_Transmit_IT(Moudle_use,str,len);
 }
 
-void TS_UART_send_data_IT(TS_UART_ENUM Moudle,uint8_t *data,uint32_t len){
+void CN_UART_send_data_IT(CN_UART_ENUM Moudle,uint8_t *data,uint32_t len){
     UART_HandleTypeDef *Moudle_use;
     switch(Moudle){
-        case TS_UART_1:{
+        case CN_UART_1:{
             Moudle_use=&UART1_Handle;
             break;
         }
-        case TS_UART_2:{
+        case CN_UART_2:{
             Moudle_use=&UART2_Handle;
             break;
         }
-        case TS_UART_3:{
+        case CN_UART_3:{
             Moudle_use=&UART3_Handle;
             break;
         }
-        case TS_UART_4:{
+        case CN_UART_4:{
             Moudle_use=&UART4_Handle;
             break;
         }
-        case TS_UART_5:{
+        case CN_UART_5:{
             Moudle_use=&UART5_Handle;
             break;
         }
-        case TS_UART_6:{
+        case CN_UART_6:{
             Moudle_use=&UART6_Handle;
             break;
         }
-        case TS_UART_7:{
+        case CN_UART_7:{
             Moudle_use=&UART7_Handle;
             break;
         }
@@ -877,68 +877,68 @@ void TS_UART_send_data_IT(TS_UART_ENUM Moudle,uint8_t *data,uint32_t len){
     HAL_UART_Transmit_IT(Moudle_use,data,len);
 }
 
-uint8_t U1_TX_temp_g[TS_UART_TEMP_SIZE]={0};//必须要通过这个数组发送，否则调用HAL_UART_Transmit_IT时找不到原局部变量数组就会报错
-uint8_t U2_TX_temp_g[TS_UART_TEMP_SIZE]={0};//必须要通过这个数组发送，否则调用HAL_UART_Transmit_IT时找不到原局部变量数组就会报错
-uint8_t U3_TX_temp_g[TS_UART_TEMP_SIZE]={0};//必须要通过这个数组发送，否则调用HAL_UART_Transmit_IT时找不到原局部变量数组就会报错
-uint8_t U4_TX_temp_g[TS_UART_TEMP_SIZE]={0};//必须要通过这个数组发送，否则调用HAL_UART_Transmit_IT时找不到原局部变量数组就会报错
-uint8_t U5_TX_temp_g[TS_UART_TEMP_SIZE]={0};//必须要通过这个数组发送，否则调用HAL_UART_Transmit_IT时找不到原局部变量数组就会报错
-uint8_t U6_TX_temp_g[TS_UART_TEMP_SIZE]={0};//必须要通过这个数组发送，否则调用HAL_UART_Transmit_IT时找不到原局部变量数组就会报错
-uint8_t U7_TX_temp_g[TS_UART_TEMP_SIZE]={0};//必须要通过这个数组发送，否则调用HAL_UART_Transmit_IT时找不到原局部变量数组就会报错
+uint8_t U1_TX_temp_g[CN_UART_TEMP_SIZE]={0};//必须要通过这个数组发送，否则调用HAL_UART_Transmit_IT时找不到原局部变量数组就会报错
+uint8_t U2_TX_temp_g[CN_UART_TEMP_SIZE]={0};//必须要通过这个数组发送，否则调用HAL_UART_Transmit_IT时找不到原局部变量数组就会报错
+uint8_t U3_TX_temp_g[CN_UART_TEMP_SIZE]={0};//必须要通过这个数组发送，否则调用HAL_UART_Transmit_IT时找不到原局部变量数组就会报错
+uint8_t U4_TX_temp_g[CN_UART_TEMP_SIZE]={0};//必须要通过这个数组发送，否则调用HAL_UART_Transmit_IT时找不到原局部变量数组就会报错
+uint8_t U5_TX_temp_g[CN_UART_TEMP_SIZE]={0};//必须要通过这个数组发送，否则调用HAL_UART_Transmit_IT时找不到原局部变量数组就会报错
+uint8_t U6_TX_temp_g[CN_UART_TEMP_SIZE]={0};//必须要通过这个数组发送，否则调用HAL_UART_Transmit_IT时找不到原局部变量数组就会报错
+uint8_t U7_TX_temp_g[CN_UART_TEMP_SIZE]={0};//必须要通过这个数组发送，否则调用HAL_UART_Transmit_IT时找不到原局部变量数组就会报错
 
-void TS_UART_write_fifo(TS_UART_ENUM Moudle,uint8_t *data,uint32_t len){
+void CN_UART_write_fifo(CN_UART_ENUM Moudle,uint8_t *data,uint32_t len){
     UART_HandleTypeDef *Moudle_use;
-    TS_FIFO_struct *FIFO_use;
+    CN_FIFO_struct *FIFO_use;
     uint8_t *TX_temp_g_use=NULL;
     switch(Moudle){
-        case TS_UART_1:{
+        case CN_UART_1:{
             Moudle_use=&UART1_Handle;
-            FIFO_use=&TS_UART1_FIFO;
+            FIFO_use=&CN_UART1_FIFO;
             TX_temp_g_use=U1_TX_temp_g;
             break;
         }
-        case TS_UART_2:{
+        case CN_UART_2:{
             Moudle_use=&UART2_Handle;
-            FIFO_use=&TS_UART2_FIFO;
+            FIFO_use=&CN_UART2_FIFO;
             TX_temp_g_use=U2_TX_temp_g;
             break;
         }
-        case TS_UART_3:{
+        case CN_UART_3:{
             Moudle_use=&UART3_Handle;
-            FIFO_use=&TS_UART3_FIFO;
+            FIFO_use=&CN_UART3_FIFO;
             TX_temp_g_use=U3_TX_temp_g;
             break;
         }
-        case TS_UART_4:{
+        case CN_UART_4:{
             Moudle_use=&UART4_Handle;
-            FIFO_use=&TS_UART4_FIFO;
+            FIFO_use=&CN_UART4_FIFO;
             TX_temp_g_use=U4_TX_temp_g;
             break;
         }
-        case TS_UART_5:{
+        case CN_UART_5:{
             Moudle_use=&UART5_Handle;
-            FIFO_use=&TS_UART5_FIFO;
+            FIFO_use=&CN_UART5_FIFO;
             TX_temp_g_use=U5_TX_temp_g;
             break;
         }
-        case TS_UART_6:{
+        case CN_UART_6:{
             Moudle_use=&UART6_Handle;
-            FIFO_use=&TS_UART6_FIFO;
+            FIFO_use=&CN_UART6_FIFO;
             TX_temp_g_use=U6_TX_temp_g;
             break;
         }
-        case TS_UART_7:{
+        case CN_UART_7:{
             Moudle_use=&UART7_Handle;
-            FIFO_use=&TS_UART7_FIFO;
+            FIFO_use=&CN_UART7_FIFO;
             TX_temp_g_use=U7_TX_temp_g;
             break;
         }
     }
     if(Moudle_use->gState==HAL_UART_STATE_READY){                   //如果串口空闲
-        uint32_t FIFO_occupied=TS_get_FIFO_occupied(FIFO_use);      //计算FIFO剩余字节数
+        uint32_t FIFO_occupied=CN_get_FIFO_occupied(FIFO_use);      //计算FIFO剩余字节数
         if(FIFO_occupied>0){                                        //如果FIFO中还有数据
-            TS_FIFO_read(FIFO_use,TX_temp_g_use,FIFO_occupied);              //读出FIFO剩余数据
+            CN_FIFO_read(FIFO_use,TX_temp_g_use,FIFO_occupied);              //读出FIFO剩余数据
             HAL_UART_Transmit_IT(Moudle_use,TX_temp_g_use,FIFO_occupied);    //发送剩余数据
-            TS_FIFO_write(FIFO_use,data,len);                       //写入当前数据到FIFO
+            CN_FIFO_write(FIFO_use,data,len);                       //写入当前数据到FIFO
         }
         else{                                                       //如果FIFO中没有数据了
             // printf("send data\n");
@@ -948,13 +948,13 @@ void TS_UART_write_fifo(TS_UART_ENUM Moudle,uint8_t *data,uint32_t len){
     }
     else{                                                           //如果串口忙
         // printf("write fifo\n");
-        TS_FIFO_write(FIFO_use,data,len);                           //写入当前数据到FIFO
+        CN_FIFO_write(FIFO_use,data,len);                           //写入当前数据到FIFO
     }
 }
 
-void TS_UART_write_string_FIFO(TS_UART_ENUM Moudle,uint8_t *str){
+void CN_UART_write_string_FIFO(CN_UART_ENUM Moudle,uint8_t *str){
     uint16_t len=strlen(str);
-    TS_UART_write_fifo(Moudle,str,len);
+    CN_UART_write_fifo(Moudle,str,len);
 }
 
 void USART1_IRQHandler(void){HAL_UART_IRQHandler(&UART1_Handle);}
@@ -965,62 +965,62 @@ void UART5_IRQHandler(void){HAL_UART_IRQHandler(&UART5_Handle);}
 void USART6_IRQHandler(void){HAL_UART_IRQHandler(&UART6_Handle);}
 void UART7_IRQHandler(void){HAL_UART_IRQHandler(&UART7_Handle);}
 
-void TS_UART1_RX_CALLBACK(uint8_t dat){}
-// void TS_UART2_RX_CALLBACK(uint8_t dat){}
-// void TS_UART3_RX_CALLBACK(uint8_t dat){}
-// void TS_UART4_RX_CALLBACK(uint8_t dat){}
-// void TS_UART5_RX_CALLBACK(uint8_t dat){}
-// void TS_UART6_RX_CALLBACK(uint8_t dat){}
-// void TS_UART7_RX_CALLBACK(uint8_t dat){}
+void CN_UART1_RX_CALLBACK(uint8_t dat){}
+// void CN_UART2_RX_CALLBACK(uint8_t dat){}
+// void CN_UART3_RX_CALLBACK(uint8_t dat){}
+// void CN_UART4_RX_CALLBACK(uint8_t dat){}
+// void CN_UART5_RX_CALLBACK(uint8_t dat){}
+// void CN_UART6_RX_CALLBACK(uint8_t dat){}
+// void CN_UART7_RX_CALLBACK(uint8_t dat){}
 
 void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart){
     
     if(huart->Instance==USART1){
-        uint32_t FIFO_occupied=TS_get_FIFO_occupied(&TS_UART1_FIFO);      //计算FIFO剩余字节数
+        uint32_t FIFO_occupied=CN_get_FIFO_occupied(&CN_UART1_FIFO);      //计算FIFO剩余字节数
         if(FIFO_occupied>0){                                        //如果FIFO中还有数据  
-            TS_FIFO_read(&TS_UART1_FIFO,U1_TX_temp_g,FIFO_occupied);              //读出FIFO剩余数据
+            CN_FIFO_read(&CN_UART1_FIFO,U1_TX_temp_g,FIFO_occupied);              //读出FIFO剩余数据
             HAL_UART_Transmit_IT(&UART1_Handle,U1_TX_temp_g,FIFO_occupied);    //发送剩余数据
         }
     }
     if(huart->Instance==USART2){
-        uint32_t FIFO_occupied=TS_get_FIFO_occupied(&TS_UART2_FIFO);      //计算FIFO剩余字节数
+        uint32_t FIFO_occupied=CN_get_FIFO_occupied(&CN_UART2_FIFO);      //计算FIFO剩余字节数
         if(FIFO_occupied>0){                                        //如果FIFO中还有数据
-            TS_FIFO_read(&TS_UART2_FIFO,U2_TX_temp_g,FIFO_occupied);              //读出FIFO剩余数据
+            CN_FIFO_read(&CN_UART2_FIFO,U2_TX_temp_g,FIFO_occupied);              //读出FIFO剩余数据
             HAL_UART_Transmit_IT(&UART2_Handle,U2_TX_temp_g,FIFO_occupied);    //发送剩余数据
         }
     }
     if(huart->Instance==USART3){
-        uint32_t FIFO_occupied=TS_get_FIFO_occupied(&TS_UART3_FIFO);      //计算FIFO剩余字节数
+        uint32_t FIFO_occupied=CN_get_FIFO_occupied(&CN_UART3_FIFO);      //计算FIFO剩余字节数
         if(FIFO_occupied>0){               //如果FIFO中还有数据        
-            TS_FIFO_read(&TS_UART3_FIFO,U3_TX_temp_g,FIFO_occupied);              //读出FIFO剩余数据
+            CN_FIFO_read(&CN_UART3_FIFO,U3_TX_temp_g,FIFO_occupied);              //读出FIFO剩余数据
             HAL_UART_Transmit_IT(&UART3_Handle,U3_TX_temp_g,FIFO_occupied);    //发送剩余数据
         }
     }
     if(huart->Instance==UART4){
-        uint32_t FIFO_occupied=TS_get_FIFO_occupied(&TS_UART4_FIFO);      //计算FIFO剩余字节数
+        uint32_t FIFO_occupied=CN_get_FIFO_occupied(&CN_UART4_FIFO);      //计算FIFO剩余字节数
         if(FIFO_occupied>0){               //如果FIFO中还有数据       
-            TS_FIFO_read(&TS_UART4_FIFO,U4_TX_temp_g,FIFO_occupied);              //读出FIFO剩余数据
+            CN_FIFO_read(&CN_UART4_FIFO,U4_TX_temp_g,FIFO_occupied);              //读出FIFO剩余数据
             HAL_UART_Transmit_IT(&UART4_Handle,U4_TX_temp_g,FIFO_occupied);    //发送剩余数据
         }
     }
     if(huart->Instance==UART5){
-        uint32_t FIFO_occupied=TS_get_FIFO_occupied(&TS_UART5_FIFO);      //计算FIFO剩余字节数
+        uint32_t FIFO_occupied=CN_get_FIFO_occupied(&CN_UART5_FIFO);      //计算FIFO剩余字节数
         if(FIFO_occupied>0){               //如果FIFO中还有数据       
-            TS_FIFO_read(&TS_UART5_FIFO,U5_TX_temp_g,FIFO_occupied);              //读出FIFO剩余数据
+            CN_FIFO_read(&CN_UART5_FIFO,U5_TX_temp_g,FIFO_occupied);              //读出FIFO剩余数据
             HAL_UART_Transmit_IT(&UART5_Handle,U5_TX_temp_g,FIFO_occupied);    //发送剩余数据
         }
     }
     if(huart->Instance==USART6){
-        uint32_t FIFO_occupied=TS_get_FIFO_occupied(&TS_UART6_FIFO);      //计算FIFO剩余字节数
+        uint32_t FIFO_occupied=CN_get_FIFO_occupied(&CN_UART6_FIFO);      //计算FIFO剩余字节数
         if(FIFO_occupied>0){               //如果FIFO中还有数据       
-            TS_FIFO_read(&TS_UART6_FIFO,U6_TX_temp_g,FIFO_occupied);              //读出FIFO剩余数据
+            CN_FIFO_read(&CN_UART6_FIFO,U6_TX_temp_g,FIFO_occupied);              //读出FIFO剩余数据
             HAL_UART_Transmit_IT(&UART6_Handle,U6_TX_temp_g,FIFO_occupied);    //发送剩余数据
         }
     }
     if(huart->Instance==UART7){
-        uint32_t FIFO_occupied=TS_get_FIFO_occupied(&TS_UART7_FIFO);      //计算FIFO剩余字节数
+        uint32_t FIFO_occupied=CN_get_FIFO_occupied(&CN_UART7_FIFO);      //计算FIFO剩余字节数
         if(FIFO_occupied>0){               //如果FIFO中还有数据       
-            TS_FIFO_read(&TS_UART7_FIFO,U7_TX_temp_g,FIFO_occupied);              //读出FIFO剩余数据
+            CN_FIFO_read(&CN_UART7_FIFO,U7_TX_temp_g,FIFO_occupied);              //读出FIFO剩余数据
             HAL_UART_Transmit_IT(&UART7_Handle,U7_TX_temp_g,FIFO_occupied);    //发送剩余数据
         }
     }
@@ -1029,37 +1029,37 @@ void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart){
 //回调函数
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart){
     if(huart->Instance==USART1){
-        // TS_Debug_UART_RX_CALLBACK(UART_1_RX_dat);
+        // CN_Debug_UART_RX_CALLBACK(UART_1_RX_dat);
         HAL_UART_Receive_IT(&UART1_Handle,&UART_1_RX_dat,1);
     }
     if(huart->Instance==USART2){
-        TS_UART2_RX_CALLBACK(UART_2_RX_dat);
+        CN_UART2_RX_CALLBACK(UART_2_RX_dat);
         HAL_UART_Receive_IT(&UART2_Handle,&UART_2_RX_dat,1);
     }
     if(huart->Instance==USART3){
-        TS_UART3_RX_CALLBACK(UART_3_RX_dat);
+        CN_UART3_RX_CALLBACK(UART_3_RX_dat);
         HAL_UART_Receive_IT(&UART3_Handle,&UART_3_RX_dat,1);
     }
     if(huart->Instance==UART4){
-        TS_UART4_RX_CALLBACK(UART_4_RX_dat);
+        CN_UART4_RX_CALLBACK(UART_4_RX_dat);
         HAL_UART_Receive_IT(&UART4_Handle,&UART_4_RX_dat,1);
     }
     if(huart->Instance==UART5){
-        TS_UART5_RX_CALLBACK(UART_5_RX_dat);
+        CN_UART5_RX_CALLBACK(UART_5_RX_dat);
         HAL_UART_Receive_IT(&UART5_Handle,&UART_5_RX_dat,1);
     }
     if(huart->Instance==USART6){
-        TS_UART6_RX_CALLBACK(UART_6_RX_dat);
+        CN_UART6_RX_CALLBACK(UART_6_RX_dat);
         HAL_UART_Receive_IT(&UART6_Handle,&UART_6_RX_dat,1);
     }
     if(huart->Instance==UART7){
-        TS_UART7_RX_CALLBACK(UART_7_RX_dat);
+        CN_UART7_RX_CALLBACK(UART_7_RX_dat);
         HAL_UART_Receive_IT(&UART7_Handle,&UART_7_RX_dat,1);
     }
 }
 
 /***************************FIFO驱动***************************/
-void TS_FIFO_init(TS_FIFO_struct *FIFO,uint8_t *pdata,uint16_t templen){
+void CN_FIFO_init(CN_FIFO_struct *FIFO,uint8_t *pdata,uint16_t templen){
     FIFO->temp=pdata;
     FIFO->head=0;
     FIFO->tail=0;
@@ -1067,34 +1067,34 @@ void TS_FIFO_init(TS_FIFO_struct *FIFO,uint8_t *pdata,uint16_t templen){
     FIFO->is_FIFO_full=0;
 }
 
-uint8_t TS_FIFO_read(TS_FIFO_struct *FIFO,uint8_t *pdata,uint16_t readlen){
-    if(TS_get_FIFO_occupied(FIFO)<readlen){
+uint8_t CN_FIFO_read(CN_FIFO_struct *FIFO,uint8_t *pdata,uint16_t readlen){
+    if(CN_get_FIFO_occupied(FIFO)<readlen){
         return 0;
     }
     else{
         for(int i=0;i<readlen;i++){
             uint8_t byte=0;
-            TS_FIFO_read_Byte(FIFO,&byte);
+            CN_FIFO_read_Byte(FIFO,&byte);
             pdata[i]=byte;
         }
         return 1;
     }
 }
 
-uint8_t TS_FIFO_write(TS_FIFO_struct *FIFO,uint8_t *pdata,uint16_t writelen){
-    if(TS_get_FIFO_space(FIFO)<writelen){
+uint8_t CN_FIFO_write(CN_FIFO_struct *FIFO,uint8_t *pdata,uint16_t writelen){
+    if(CN_get_FIFO_space(FIFO)<writelen){
         return 0;
     }
     else{
         for(int i=0;i<writelen;i++){
-            TS_FIFO_write_Byte(FIFO,pdata[i]);
+            CN_FIFO_write_Byte(FIFO,pdata[i]);
         }
         return 1;
     }
 }
 
-uint8_t TS_FIFO_read_Byte(TS_FIFO_struct *FIFO,uint8_t *pdata){//从FIFO尾部读出一个字节，如果失败则返回0
-    if(TS_get_FIFO_occupied(FIFO)<1){
+uint8_t CN_FIFO_read_Byte(CN_FIFO_struct *FIFO,uint8_t *pdata){//从FIFO尾部读出一个字节，如果失败则返回0
+    if(CN_get_FIFO_occupied(FIFO)<1){
         return 0;
     }
     else{
@@ -1107,8 +1107,8 @@ uint8_t TS_FIFO_read_Byte(TS_FIFO_struct *FIFO,uint8_t *pdata){//从FIFO尾部�
     }
 }
 
-uint8_t TS_FIFO_write_Byte(TS_FIFO_struct *FIFO,uint8_t data){//从FIFO头部写入一个字节，如果失败则返回0
-    if(TS_get_FIFO_space(FIFO)<1){//检查剩余空间
+uint8_t CN_FIFO_write_Byte(CN_FIFO_struct *FIFO,uint8_t data){//从FIFO头部写入一个字节，如果失败则返回0
+    if(CN_get_FIFO_space(FIFO)<1){//检查剩余空间
         return 0;
     }
     else{
@@ -1123,11 +1123,11 @@ uint8_t TS_FIFO_write_Byte(TS_FIFO_struct *FIFO,uint8_t data){//从FIFO头部写
     }
 }
 
-uint16_t TS_get_FIFO_space(TS_FIFO_struct *FIFO){
-    return (FIFO->temp_len-TS_get_FIFO_occupied(FIFO));
+uint16_t CN_get_FIFO_space(CN_FIFO_struct *FIFO){
+    return (FIFO->temp_len-CN_get_FIFO_occupied(FIFO));
 }
 
-uint16_t TS_get_FIFO_occupied(TS_FIFO_struct *FIFO){
+uint16_t CN_get_FIFO_occupied(CN_FIFO_struct *FIFO){
     if(FIFO->head==FIFO->tail){
         if(FIFO->is_FIFO_full){
             return FIFO->temp_len;

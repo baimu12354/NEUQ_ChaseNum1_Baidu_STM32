@@ -7,8 +7,8 @@
 
 extern int32_t ENC_data[4];
 
-void TS_TIM2345_ENC_init(void);
-void TS_read_ENC_INC(void);
+void CN_TIM2345_ENC_init(void);
+void CN_read_ENC_INC(void);
 
 
 #endif // !_CHASENUM1_ENC_H_

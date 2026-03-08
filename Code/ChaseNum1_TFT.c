@@ -466,14 +466,14 @@ void tft180_init (void){
     tft180_set_color(tft180_pencolor, tft180_bgcolor);
 
     TFT180_RST(0);
-    TS_delay_ms(5);
+    CN_delay_ms(5);
     TFT180_RST(1);
-    TS_delay_ms(120);
+    CN_delay_ms(120);
 
     TFT180_CS(0);
 
     tft180_write_index(0x11);
-    TS_delay_ms(120);
+    CN_delay_ms(120);
 
     tft180_write_index(0xB1);
     tft180_write_8bit_data(0x01);

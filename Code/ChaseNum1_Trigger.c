@@ -1,6 +1,6 @@
 #include "ChaseNum1_Include.h"
 
-void TS_Trig_init(void){
+void CN_Trig_init(void){
     __HAL_RCC_GPIOI_CLK_ENABLE();
     __HAL_RCC_GPIOB_CLK_ENABLE();
 

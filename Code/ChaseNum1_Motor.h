@@ -22,35 +22,35 @@ extern Motor_pos_struct Pos_aim;
 
 extern uint8_t Motor_Precise_Mode;
 /****************************电机功率环***************************/
-void TS_TIM8_Motor_init(void);
-void TS_TIM1_Motor_init(void);
-void TS_TIM14_Motor_init(void);
-void TS_TIM16_Motor_init(void);
-void TS_TIM4_Motor_init(void);
-void TS_Motor_init(void);
-void TS_TIM_Motor_PWMOUT_ENA(void);
-void TS_TIM_Motor_PWMOUT_DISA(void);
-void TS_TIM_Motor_PWM_duty_set(uint32_t CH1_8[8]);
-void TS_set_Motor_Duty(void);
+void CN_TIM8_Motor_init(void);
+void CN_TIM1_Motor_init(void);
+void CN_TIM14_Motor_init(void);
+void CN_TIM16_Motor_init(void);
+void CN_TIM4_Motor_init(void);
+void CN_Motor_init(void);
+void CN_TIM_Motor_PWMOUT_ENA(void);
+void CN_TIM_Motor_PWMOUT_DISA(void);
+void CN_TIM_Motor_PWM_duty_set(uint32_t CH1_8[8]);
+void CN_set_Motor_Duty(void);
 /****************************电机功率环***************************/
 
-void TS_Motor_Change_To_Precise_Mode(void);
-void TS_Motor_Change_To_Normal_Mode(void);
+void CN_Motor_Change_To_Precise_Mode(void);
+void CN_Motor_Change_To_Normal_Mode(void);
 
 /****************************电机转速环***************************/
-void TS_Motor_vel_CL_init(void);
-void TS_Motor_vel_CL_set_aim(Motor_vel_struct aim);
-void TS_Motor_vel_CL_CALLBACK(uint32_t us_time);
-void TS_Motor_outline(void);
+void CN_Motor_vel_CL_init(void);
+void CN_Motor_vel_CL_set_aim(Motor_vel_struct aim);
+void CN_Motor_vel_CL_CALLBACK(uint32_t us_time);
+void CN_Motor_outline(void);
 
-void TS_Milemeter_set(float milemeter_value);
-float TS_get_Milemeter(void);
+void CN_Milemeter_set(float milemeter_value);
+float CN_get_Milemeter(void);
 /****************************电机转速环***************************/
 
 /****************************电机位置环***************************/
-void TS_Motor_pos_CL_init(void);
-void TS_Motor_pos_CL_CALLBACK(uint32_t us_time);
-void TS_Motor_pos_CL_set_aim(Motor_pos_struct aim);
+void CN_Motor_pos_CL_init(void);
+void CN_Motor_pos_CL_CALLBACK(uint32_t us_time);
+void CN_Motor_pos_CL_set_aim(Motor_pos_struct aim);
 /****************************电机位置环***************************/
 
 extern PID_ctrler FL_pos_PID_ctrler;

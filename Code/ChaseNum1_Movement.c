@@ -23,52 +23,52 @@ static volatile char s_cDataUpdate = 0, s_cCmd = 0xff;
 
 IMU_Data_struct IMU_data={0};
 
-void TS_3rd_Party_JY61_IMU_UART_write_func(uint8_t *pData, uint32_t len){
-    TS_UART_send_data_IT(TS_UART_2,pData,len);
+void CN_3rd_Party_JY61_IMU_UART_write_func(uint8_t *pData, uint32_t len){
+    CN_UART_send_data_IT(CN_UART_2,pData,len);
 }
 
-void TS_3rd_Party_JY61_IMU_update_CALLBACK(uint32_t uiReg, uint32_t uiRegNum);
+void CN_3rd_Party_JY61_IMU_update_CALLBACK(uint32_t uiReg, uint32_t uiRegNum);
 
-void TS_3rd_Party_JY61_IMU_init(void){
+void CN_3rd_Party_JY61_IMU_init(void){
     WitInit(WIT_PROTOCOL_NORMAL, 0x50);//选择串口协议
-    WitSerialWriteRegister(TS_3rd_Party_JY61_IMU_UART_write_func);//注册串口向传感器写函数
-    WitRegisterCallBack(TS_3rd_Party_JY61_IMU_update_CALLBACK);//注册寄存器更新回调
-    WitDelayMsRegister(TS_delay_ms);//注册延时函数，必须先调用TS_PIT_3_init_us
+    WitSerialWriteRegister(CN_3rd_Party_JY61_IMU_UART_write_func);//注册串口向传感器写函数
+    WitRegisterCallBack(CN_3rd_Party_JY61_IMU_update_CALLBACK);//注册寄存器更新回调
+    WitDelayMsRegister(CN_delay_ms);//注册延时函数，必须先调用TS_PIT_3_init_us
 
     while(1){
-        if(TS_auto_scan_JY61()==1){//在所有波特率上搜索传感器
+        if(CN_auto_scan_JY61()==1){//在所有波特率上搜索传感器
             break;
         }
     }
 
     WitWriteReg(KEY,0xB588);//打开寄存器写锁定
-    TS_delay_ms(50);
+    CN_delay_ms(50);
     WitWriteReg(RRATE,RRATE_200HZ);//设置输出速率为200hz
-    TS_delay_ms(50);
+    CN_delay_ms(50);
     WitWriteReg(BAUD,WIT_BAUD_115200);//设置传感器接收波特率
 
-    delay_ms(50);
-    TS_UART_deinit(TS_UART_2);
-    TS_UART2_init(115200);//重新初始化串口，配置为相同的波特率
+    CN_delay_ms(50);
+    CN_UART_deinit(CN_UART_2);
+    CN_UART2_init(115200);//重新初始化串口，配置为相同的波特率
 
     // WitWriteReg(RSW,0x6);//只输出加速度、角速度
     WitWriteReg(KEY,0xB588);
-    TS_delay_ms(50);
+    CN_delay_ms(50);
     WitWriteReg(AXIS6,0x01);//关闭磁力计，使用纯惯性解算
-    TS_delay_ms(50);
+    CN_delay_ms(50);
     WitWriteReg(RSW,RSW_ANGLE);//只使用角度输出 | RSW_GYRO
-    TS_delay_ms(50);
+    CN_delay_ms(50);
     WitWriteReg(CALSW,CALANGLEZ);//只使用角度输出
 }
 
-uint8_t TS_auto_scan_JY61(void){
+uint8_t CN_auto_scan_JY61(void){
     uint32_t bauds[7]={4800,9600,19200,38400,57600,115200,230400};
 
     for(int i =0;i<7;i++){
-        TS_UART_deinit(TS_UART_2);
-        TS_UART2_init(bauds[i]);
+        CN_UART_deinit(CN_UART_2);
+        CN_UART2_init(bauds[i]);
         WitReadReg(AX, 3);
-        delay_ms(100);
+        CN_delay_ms(100);
         if(s_cDataUpdate == 0){
             printf("baud %d fail\n",bauds[i]);
         }
@@ -79,13 +79,13 @@ uint8_t TS_auto_scan_JY61(void){
     }
     return 0;
 }
-
-void TS_UART2_RX_CALLBACK(uint8_t dat){
+    
+void CN_UART2_RX_CALLBACK(uint8_t dat){
     // printf("%c\n",dat);
     WitSerialDataIn(dat);
 }
 
-void TS_3rd_Party_JY61_IMU_update_CALLBACK(uint32_t uiReg, uint32_t uiRegNum){
+void CN_3rd_Party_JY61_IMU_update_CALLBACK(uint32_t uiReg, uint32_t uiRegNum){
     // printf("callback\n");
     // printf("%d\n",uiReg);
 	int i;
@@ -135,7 +135,7 @@ void TS_3rd_Party_JY61_IMU_update_CALLBACK(uint32_t uiReg, uint32_t uiRegNum){
 }
 /*************************************调用wit-JY61接口***********************************/
 
-void TS_Set_YAW(float yaw){
+void CN_Set_YAW(float yaw){
     while(yaw>180){
         yaw-=360;
     }
@@ -153,7 +153,7 @@ void TS_Set_YAW(float yaw){
     }
 }
 
-float TS_get_logical_yaw(void){
+float CN_get_logical_yaw(void){
     float logical_yaw=YAW_now+yaw_bias;
     while(logical_yaw>180){
         logical_yaw-=360;
@@ -164,14 +164,14 @@ float TS_get_logical_yaw(void){
     return logical_yaw;
 }
 
-void TS_move_init(void){
-    TS_Motor_pos_CL_init();//初始化电机位置环
-    TS_CAR_yaw_CL_init();//初始化车身角度环
-    TS_CAR_pos_CL_init();//初始化车身位置环
+void CN_move_init(void){
+    CN_Motor_pos_CL_init();//初始化电机位置环
+    CN_CAR_yaw_CL_init();//初始化车身角度环
+    CN_CAR_pos_CL_init();//初始化车身位置环
 }
 
 #define M_TO_ENC_FACTOR (1.0f)
-void TS_set_movement(Car_Movement_struct movement,Movement_type_ENUM movement_type,uint8_t cmd_check_get){
+void CN_set_movement(Car_Movement_struct movement,Movement_type_ENUM movement_type,uint8_t cmd_check_get){
     Motor_pos_struct Motor_pos_to_set={0};
     cmd_check=cmd_check_get;
 
@@ -184,14 +184,14 @@ void TS_set_movement(Car_Movement_struct movement,Movement_type_ENUM movement_ty
         // TS_Motor_pos_CL_set_aim(Motor_pos_to_set);
         //printf("set movement: rotation:%f\n",movement.Car_Z_rotation);
         //printf("set movement: speed:%f\n",movement.Car_speed);
-        TS_CAR_pos_CL_set_aim(movement);
+        CN_CAR_pos_CL_set_aim(movement);
         SYS_STATUS.bits.SYS_MOVING=1;
         SYS_STATUS.bits.SYS_INLINE=0;
         SYS_STATUS.bits.SYS_ROTATING=0;
     }
     else if(movement_type==Movement_Rotation || movement_type==Movement_Rotation_Precise){
         printf("set movement: rotation:%f\n",movement.Car_Z_rotation);
-        TS_CAR_yaw_CL_set_aim(movement.Car_Z_rotation);
+        CN_CAR_yaw_CL_set_aim(movement.Car_Z_rotation);
         SYS_STATUS.bits.SYS_MOVING=0;
         SYS_STATUS.bits.SYS_INLINE=0;
         SYS_STATUS.bits.SYS_ROTATING=1;
@@ -201,30 +201,30 @@ void TS_set_movement(Car_Movement_struct movement,Movement_type_ENUM movement_ty
         SYS_STATUS.bits.SYS_INLINE=1;
         SYS_STATUS.bits.SYS_MOVING=0;
         SYS_STATUS.bits.SYS_ROTATING=0;
-        TS_CAR_vel_CL_set_aim(movement);
+        CN_CAR_vel_CL_set_aim(movement);
     }
     else{
         printf("unknow type:%x\n",movement_type);
     }
 }
 
-void TS_Movement_ctrl_CALLBACK(uint32_t us_delta_time){
+void CN_Movement_ctrl_CALLBACK(uint32_t us_delta_time){
     if(SYS_STATUS.bits.SYS_INLINE==1){
-        TS_Motor_vel_CL_CALLBACK(us_delta_time);
+        CN_Motor_vel_CL_CALLBACK(us_delta_time);
     }
     else{
         if(SYS_STATUS.bits.SYS_MOVING==1){
-            TS_CAR_pos_CL_CALLBACK(us_delta_time);
+            CN_CAR_pos_CL_CALLBACK(us_delta_time);
         }
         else if(SYS_STATUS.bits.SYS_ROTATING==1){
-            TS_CAR_yaw_CL_CALLBACK(us_delta_time);
+            CN_CAR_yaw_CL_CALLBACK(us_delta_time);
         }
     }
 }
 
-void TS_Intr_Movement(void){
+void CN_Intr_Movement(void){
     uint32_t CH1_8[8]={0};
-    TS_TIM_Motor_PWM_duty_set(CH1_8);
+    CN_TIM_Motor_PWM_duty_set(CH1_8);
     SYS_STATUS.bits.SYS_ACTING=0;
     SYS_STATUS.bits.SYS_INLINE=0;
     SYS_STATUS.bits.SYS_PUMPACTIVE=0;
@@ -246,7 +246,7 @@ float Confirm_Time=CONFIRM_TIME;
 
 uint8_t Movement_Precise_Mode=0;
 
-void TS_Movement_Change_To_Precise_Mode(void){
+void CN_Movement_Change_To_Precise_Mode(void){
     Movement_Precise_Mode=1;
     Translation_Tolerance=TRANSLATION_TOLERANCE_PRECISE;
     Rotation_Tolerance=ROTATION_TOLERANCE_PRECISE;
@@ -255,7 +255,7 @@ void TS_Movement_Change_To_Precise_Mode(void){
     printf("change to precise mode\n");
 }
 
-void TS_Movement_Change_To_Normal_Mode(void){
+void CN_Movement_Change_To_Normal_Mode(void){
     Movement_Precise_Mode=0;
     Translation_Tolerance=TRANSLATION_TOLERANCE;
     Rotation_Tolerance=ROTATION_TOLERANCE;
@@ -270,7 +270,7 @@ int M_FR_Pos_Err_LPF[Pos_Err_LPF_LEN]={0};
 int M_BL_Pos_Err_LPF[Pos_Err_LPF_LEN]={0};
 int M_BR_Pos_Err_LPF[Pos_Err_LPF_LEN]={0};
 uint32_t Pos_Err_LPF_Cnt=0;
-void TS_Movement_done_check_CALLBACK(void){
+void CN_Movement_done_check_CALLBACK(void){
     M_FL_Pos_Err_LPF[Pos_Err_LPF_Cnt]=Pos_now.M_FL_Pos-Pos_aim.M_FL_Pos;
     M_FR_Pos_Err_LPF[Pos_Err_LPF_Cnt]=Pos_now.M_FR_Pos-Pos_aim.M_FR_Pos;
     M_BL_Pos_Err_LPF[Pos_Err_LPF_Cnt]=Pos_now.M_BL_Pos-Pos_aim.M_BL_Pos;
@@ -316,16 +316,16 @@ void TS_Movement_done_check_CALLBACK(void){
     }
 
     if(movement_done_counter>=Confirm_Time && (SYS_STATUS.bits.SYS_MOVING==1 || SYS_STATUS.bits.SYS_ROTATING==1)){
-        TS_Motor_outline();
+        CN_Motor_outline();
         if(SYS_STATUS.bits.SYS_MOVING==1){
             SYS_STATUS.bits.SYS_MOVING=0;
             uint8_t response=CMDDONE_type_moving;
-            TS_send_Response(Main_CMD_CMDDONE,&response);
+            CN_send_Response(Main_CMD_CMDDONE,&response);
         }
         if(SYS_STATUS.bits.SYS_ROTATING==1){
             SYS_STATUS.bits.SYS_ROTATING=0;
             uint8_t response=CMDDONE_type_rotating;
-            TS_send_Response(Main_CMD_CMDDONE,&response);
+            CN_send_Response(Main_CMD_CMDDONE,&response);
         }
         movement_done_counter=0;
     }
@@ -337,12 +337,12 @@ void TS_Movement_done_check_CALLBACK(void){
 #define CAR_YAW_CL_PID_IMAX (0)
 #define CAR_YAW_CL_PID_OUTMAX (10)
 /****************************机身角度环***************************/
-void TS_CAR_yaw_CL_init(void){//初始化电机位置环PID控制器
+void CN_CAR_yaw_CL_init(void){//初始化电机位置环PID控制器
     init_PID_ctrler(&Car_yaw_PID_ctrler,CAR_YAW_CL_PID_KP,CAR_YAW_CL_PID_KI,CAR_YAW_CL_PID_KD,CAR_YAW_CL_PID_IMAX,CAR_YAW_CL_PID_OUTMAX);
 }
 
-void TS_CAR_yaw_CL_CALLBACK(uint32_t us_time){
-    float YAW_err=TS_get_relative_angle(YAW_now,YAW_aim);
+void CN_CAR_yaw_CL_CALLBACK(uint32_t us_time){
+    float YAW_err=CN_get_relative_angle(YAW_now,YAW_aim);
 
     YAW_err=fabs(YAW_err)<1?0:YAW_err;
 
@@ -359,35 +359,35 @@ void TS_CAR_yaw_CL_CALLBACK(uint32_t us_time){
 
     // printf("%.2f,%.2f\n",YAW_now,YAW_aim);
 
-    TS_Motor_vel_CL_CALLBACK(us_time);//调用速度环更新
+    CN_Motor_vel_CL_CALLBACK(us_time);//调用速度环更新
 }
 
-float TS_get_relative_angle(float now,float aim){//获取两个绝对方位角之间的相对方位角
+float CN_get_relative_angle(float now,float aim){//获取两个绝对方位角之间的相对方位角
     float difference=aim-now;
     if(difference<-180)return difference+360;
     if(difference>180)return difference-360;
     return difference;
 }
 
-float TS_yaw_add(float now,float aim){//获取两个绝对方位角之间的相对方位角
+float CN_yaw_add(float now,float aim){//获取两个绝对方位角之间的相对方位角
     float res=now+aim;
     if(res<-180)return res+360;
     if(res>180)return res-360;
     return res;
 }
 
-void TS_CAR_yaw_CL_set_aim(float yaw){//设置位置环目标(一次性)
-    YAW_aim=TS_yaw_add(YAW_now,yaw);//设置目标位置
+void CN_CAR_yaw_CL_set_aim(float yaw){//设置位置环目标(一次性)
+    YAW_aim=CN_yaw_add(YAW_now,yaw);//设置目标位置
 }
 /****************************机身角度环***************************/
 
 Car_Movement_struct C_vel={0};//机身速度环目标
 /****************************机身速度环***************************/
-void TS_CAR_vel_CL_init(void){//初始化电机位置环PID控制器
-    TS_Motor_vel_CL_init();
+void CN_CAR_vel_CL_init(void){//初始化电机位置环PID控制器
+    CN_Motor_vel_CL_init();
 }
 
-void TS_CAR_vel_CL_CALLBACK(uint32_t us_time){
+void CN_CAR_vel_CL_CALLBACK(uint32_t us_time){
     Motor_vel_struct M_vel={0};//行进速度分量
 
     M_vel.M_FL_Vel=C_vel.Car_speed-C_vel.Car_angvel;
@@ -395,13 +395,13 @@ void TS_CAR_vel_CL_CALLBACK(uint32_t us_time){
     M_vel.M_BL_Vel=C_vel.Car_speed-C_vel.Car_angvel;
     M_vel.M_BR_Vel=C_vel.Car_speed+C_vel.Car_angvel;
 
-    TS_Motor_vel_CL_set_aim(M_vel);
+    CN_Motor_vel_CL_set_aim(M_vel);
 
-    TS_Motor_vel_CL_CALLBACK(us_time);//调用速度环更新
+    CN_Motor_vel_CL_CALLBACK(us_time);//调用速度环更新
 }
 
 
-void TS_CAR_vel_CL_set_aim(Car_Movement_struct C_vel_aim){//设置位置环目标(一次性)
+void CN_CAR_vel_CL_set_aim(Car_Movement_struct C_vel_aim){//设置位置环目标(一次性)
     Motor_vel_struct M_vel={0};//行进速度分量
 
     M_vel.M_FL_Vel=C_vel_aim.Car_speed-C_vel_aim.Car_angvel;
@@ -409,7 +409,7 @@ void TS_CAR_vel_CL_set_aim(Car_Movement_struct C_vel_aim){//设置位置环目�
     M_vel.M_BL_Vel=C_vel_aim.Car_speed-C_vel_aim.Car_angvel;
     M_vel.M_BR_Vel=C_vel_aim.Car_speed+C_vel_aim.Car_angvel;
 
-    TS_Motor_vel_CL_set_aim(M_vel);
+    CN_Motor_vel_CL_set_aim(M_vel);
 }
 
 /****************************机身速度环***************************/
@@ -423,11 +423,11 @@ void TS_CAR_vel_CL_set_aim(Car_Movement_struct C_vel_aim){//设置位置环目�
 float initial_yaw=0;//记录初始角度
 Car_Movement_struct C_pos={0};//机身位置环目标
 /****************************机身位置环***************************/
-void TS_CAR_pos_CL_init(void){//初始化电机位置环PID控制器
+void CN_CAR_pos_CL_init(void){//初始化电机位置环PID控制器
     init_PID_ctrler(&Car_yaw_moving_PID_ctrler,CAR_YAW_MOVING_CL_PID_KP,CAR_YAW_MOVING_CL_PID_KI,CAR_YAW_MOVING_CL_PID_KD,CAR_YAW_MOVING_CL_PID_IMAX,CAR_YAW_MOVING_CL_PID_OUTMAX);
 }
 
-void TS_CAR_pos_CL_set_aim(Car_Movement_struct C_pos_aim){//设置位置环目标(一次性)
+void CN_CAR_pos_CL_set_aim(Car_Movement_struct C_pos_aim){//设置位置环目标(一次性)
     initial_yaw=YAW_now;//记录初始角度
     C_pos=C_pos_aim;//设置目标位移
     Motor_pos_struct Motor_pos_to_set={0};
@@ -438,12 +438,12 @@ void TS_CAR_pos_CL_set_aim(Car_Movement_struct C_pos_aim){//设置位置环目�
     Motor_pos_to_set.M_FR_Pos=(C_pos_aim.Car_Y_movement-C_pos_aim.Car_X_movement)*M_TO_ENC_FACTOR;
     Motor_pos_to_set.M_BL_Pos=(C_pos_aim.Car_Y_movement-C_pos_aim.Car_X_movement)*M_TO_ENC_FACTOR;
     Motor_pos_to_set.M_BR_Pos=(C_pos_aim.Car_Y_movement+C_pos_aim.Car_X_movement)*M_TO_ENC_FACTOR;
-    TS_Motor_pos_CL_set_aim(Motor_pos_to_set);
+    CN_Motor_pos_CL_set_aim(Motor_pos_to_set);
 
 }
 
-void TS_CAR_pos_CL_CALLBACK(uint32_t us_time){
-    float YAW_err=TS_get_relative_angle(YAW_now,initial_yaw);
+void CN_CAR_pos_CL_CALLBACK(uint32_t us_time){
+    float YAW_err=CN_get_relative_angle(YAW_now,initial_yaw);
     PID_ctrler_update(&Car_yaw_moving_PID_ctrler,YAW_err);
     //更新角度环输出
     float Rotation_spd=Car_yaw_moving_PID_ctrler.output;
@@ -479,6 +479,6 @@ void TS_CAR_pos_CL_CALLBACK(uint32_t us_time){
 
     // printf("%.2f,%.2f,%.2f,%.2f\n",Pos_now.M_FL_Pos,Pos_now.M_FR_Pos,Pos_now.M_BL_Pos,Pos_now.M_BR_Pos);
 
-    TS_Motor_vel_CL_CALLBACK(us_time);//调用速度环更新
+    CN_Motor_vel_CL_CALLBACK(us_time);//调用速度环更新
 }
 /****************************机身位置环***************************/

@@ -104,16 +104,16 @@ void LCD_Init(void)
 	// LCD_GPIO_Init();//初始化GPIO
 	
 	LCD_RES_Clr();//复位
-	TS_delay_ms(100);
+	CN_delay_ms(100);
 	LCD_RES_Set();
-	TS_delay_ms(100);
+	CN_delay_ms(100);
 	
 	LCD_BLK_Set();//打开背光
-  	TS_delay_ms(100);
+  	CN_delay_ms(100);
 	
 	//************* Start Initial Sequence **********//
 	LCD_WR_REG(0x11); //Sleep out 
-	TS_delay_ms(120);              //Delay 120ms 
+	CN_delay_ms(120);              //Delay 120ms 
 	//------------------------------------ST7735S Frame Rate-----------------------------------------// 
 	LCD_WR_REG(0xB1); 
 	LCD_WR_DATA8(0x05); 

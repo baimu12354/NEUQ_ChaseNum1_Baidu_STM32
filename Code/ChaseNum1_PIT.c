@@ -7,11 +7,11 @@ TIM_HandleTypeDef TIM6_PIT_Handle={0};
 TIM_HandleTypeDef TIM7_PIT_Handle={0};
 TIM_HandleTypeDef TIM13_PIT_Handle={0};
 
-void TS_PIT1_CALLBACK(void);
-void TS_PIT2_CALLBACK(void);
-void TS_PIT3_CALLBACK(void);
+void CN_PIT1_CALLBACK(void);
+void CN_PIT2_CALLBACK(void);
+void CN_PIT3_CALLBACK(void);
 
-void TS_PIT_1_init_ms(uint16_t period,uint8_t priority){//初始化后自动启动定时器和中断
+void CN_PIT_1_init_ms(uint16_t period,uint8_t priority){//初始化后自动启动定时器和中断
     //timer总线时钟速率200mhz
     __HAL_RCC_TIM6_CLK_ENABLE();
 
@@ -28,7 +28,7 @@ void TS_PIT_1_init_ms(uint16_t period,uint8_t priority){//初始化后自动启�
     HAL_NVIC_EnableIRQ(TIM6_DAC_IRQn);// 启用 TIM2 中断 
 }
 
-void TS_PIT_2_init_ms(uint16_t period,uint8_t priority){//初始化后自动启动定时器和中断
+void CN_PIT_2_init_ms(uint16_t period,uint8_t priority){//初始化后自动启动定时器和中断
     //timer总线时钟速率200mhz
     __HAL_RCC_TIM7_CLK_ENABLE();
 
@@ -45,7 +45,7 @@ void TS_PIT_2_init_ms(uint16_t period,uint8_t priority){//初始化后自动启�
     HAL_NVIC_EnableIRQ(TIM7_IRQn);// 启用 TIM2 中断 
 }
 
-void TS_PIT_3_init_us(uint16_t period,uint8_t priority){//初始化后自动启动定时器和中断
+void CN_PIT_3_init_us(uint16_t period,uint8_t priority){//初始化后自动启动定时器和中断
     //timer总线时钟速率200mhz
     __HAL_RCC_TIM13_CLK_ENABLE();
 
@@ -71,11 +71,11 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 {
     if (htim->Instance == TIM6)
     {
-        TS_PIT1_CALLBACK();
+        CN_PIT1_CALLBACK();
     }
     if (htim->Instance == TIM7)
     {
-        TS_PIT2_CALLBACK();
+        CN_PIT2_CALLBACK();
     }
     if (htim->Instance == TIM13)
     {
@@ -85,7 +85,7 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
     }
 }
 
-void TS_delay_us(uint32_t nus){
+void CN_delay_us(uint32_t nus){
     uint32_t counter_start=us_delay_counter;
     while((uint32_t)(us_delay_counter-counter_start)<nus/10){
         // printf("%d\n",us_delay_counter);
@@ -93,6 +93,6 @@ void TS_delay_us(uint32_t nus){
     us_delay_counter=0;
 }
 
-void TS_delay_ms(uint16_t nms){
-    TS_delay_us(1000*nms);
+void CN_delay_ms(uint16_t nms){
+    CN_delay_us(1000*nms);
 }

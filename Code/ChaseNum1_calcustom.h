@@ -3,11 +3,11 @@
 
 #include "stm32h7xx_hal.h"
 
-static inline int TS_linear_map_int(int input,int in_min,int in_max,int out_min,int out_max){
+static inline int CN_linear_map_int(int input,int in_min,int in_max,int out_min,int out_max){
     return (int)((float)out_min + ((float)(input - in_min) * (out_max - out_min)) / (float)(in_max - in_min));
 }
 
-static inline float TS_linear_map_float(float input,
+static inline float CN_linear_map_float(float input,
                                         float in_min,
                                         float in_max,
                                         float out_min,
@@ -18,7 +18,7 @@ static inline float TS_linear_map_float(float input,
              / (in_max - in_min);
 }
 
-static inline float TS_linear_map_with_mid_float(float input,
+static inline float CN_linear_map_with_mid_float(float input,
                                                  float in_min,
                                                  float in_mid,
                                                  float in_max,
@@ -35,8 +35,8 @@ static inline float TS_linear_map_with_mid_float(float input,
     }
 }
 
-float degree_to_rad(float degree);
-float rad_to_degree(float rad);
-float get_relative_angle(float now,float aim);
+float CN_degree_to_rad(float degree);
+float CN_rad_to_degree(float rad);
+float CN_get_relative_angle(float now,float aim);
 
 #endif // !_CHASENUM1_CALCUSTOM_H_
