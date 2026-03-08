@@ -1,0 +1,278 @@
+version: "4.1"
+name: Template
+type: ARM
+deviceName: null
+packDir: null
+srcDirs:
+  - ../Code
+virtualFolder:
+  name: <virtual_root>
+  files: []
+  folders:
+    - name: USER
+      files:
+        - path: main.c
+        - path: stm32h7xx_it.c
+        - path: system_stm32h7xx.c
+        - path: stm32h7xx_hal_msp.c
+      folders: []
+    - name: CORE
+      files:
+        - path: ../CORE/core_cm7.h
+        - path: ../CORE/cmsis_armcc.h
+        - path: ../CORE/cmsis_compiler.h
+        - path: ../CORE/startup_stm32h743xx.s
+      folders: []
+    - name: SYSTEM
+      files:
+        - path: ../SYSTEM/delay/delay.c
+        - path: ../SYSTEM/sys/sys.c
+        - path: ../SYSTEM/usart/usart.c
+      folders: []
+    - name: HALLIB
+      files:
+        - path: ../HALLIB/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal.c
+        - path: ../HALLIB/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_adc.c
+        - path: ../HALLIB/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_adc_ex.c
+        - path: ../HALLIB/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_cec.c
+        - path: ../HALLIB/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_comp.c
+        - path: ../HALLIB/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_cortex.c
+        - path: ../HALLIB/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_crc.c
+        - path: ../HALLIB/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_crc_ex.c
+        - path: ../HALLIB/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_cryp.c
+        - path: ../HALLIB/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_cryp_ex.c
+        - path: ../HALLIB/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_dac.c
+        - path: ../HALLIB/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_dac_ex.c
+        - path: ../HALLIB/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_dcmi.c
+        - path: ../HALLIB/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_dfsdm.c
+        - path: ../HALLIB/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_dma.c
+        - path: ../HALLIB/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_dma_ex.c
+        - path: ../HALLIB/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_dma2d.c
+        - path: ../HALLIB/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_eth.c
+        - path: ../HALLIB/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_eth_ex.c
+        - path: ../HALLIB/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_fdcan.c
+        - path: ../HALLIB/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_flash.c
+        - path: ../HALLIB/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_flash_ex.c
+        - path: ../HALLIB/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_gpio.c
+        - path: ../HALLIB/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_hash.c
+        - path: ../HALLIB/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_hash_ex.c
+        - path: ../HALLIB/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_hcd.c
+        - path: ../HALLIB/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_hrtim.c
+        - path: ../HALLIB/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_hsem.c
+        - path: ../HALLIB/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_i2c.c
+        - path: ../HALLIB/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_i2c_ex.c
+        - path: ../HALLIB/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_i2s.c
+        - path: ../HALLIB/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_i2s_ex.c
+        - path: ../HALLIB/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_irda.c
+        - path: ../HALLIB/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_iwdg.c
+        - path: ../HALLIB/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_jpeg.c
+        - path: ../HALLIB/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_lptim.c
+        - path: ../HALLIB/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_ltdc.c
+        - path: ../HALLIB/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_mdios.c
+        - path: ../HALLIB/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_mdma.c
+        - path: ../HALLIB/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_mmc.c
+        - path: ../HALLIB/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_mmc_ex.c
+        - path: ../HALLIB/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_nand.c
+        - path: ../HALLIB/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_nor.c
+        - path: ../HALLIB/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_opamp.c
+        - path: ../HALLIB/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_opamp_ex.c
+        - path: ../HALLIB/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_pcd.c
+        - path: ../HALLIB/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_pcd_ex.c
+        - path: ../HALLIB/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_pwr.c
+        - path: ../HALLIB/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_pwr_ex.c
+        - path: ../HALLIB/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_qspi.c
+        - path: ../HALLIB/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_rcc.c
+        - path: ../HALLIB/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_rcc_ex.c
+        - path: ../HALLIB/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_rng.c
+        - path: ../HALLIB/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_rtc.c
+        - path: ../HALLIB/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_rtc_ex.c
+        - path: ../HALLIB/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_sai.c
+        - path: ../HALLIB/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_sai_ex.c
+        - path: ../HALLIB/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_sd.c
+        - path: ../HALLIB/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_sd_ex.c
+        - path: ../HALLIB/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_sdram.c
+        - path: ../HALLIB/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_smartcard.c
+        - path: ../HALLIB/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_smartcard_ex.c
+        - path: ../HALLIB/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_smbus.c
+        - path: ../HALLIB/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_spdifrx.c
+        - path: ../HALLIB/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_spi.c
+        - path: ../HALLIB/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_spi_ex.c
+        - path: ../HALLIB/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_sram.c
+        - path: ../HALLIB/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_swpmi.c
+        - path: ../HALLIB/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_tim.c
+        - path: ../HALLIB/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_tim_ex.c
+        - path: ../HALLIB/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_uart.c
+        - path: ../HALLIB/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_uart_ex.c
+        - path: ../HALLIB/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_usart.c
+        - path: ../HALLIB/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_wwdg.c
+        - path: ../HALLIB/STM32H7xx_HAL_Driver/Src/stm32h7xx_ll_fmc.c
+        - path: ../HALLIB/STM32H7xx_HAL_Driver/Src/stm32h7xx_ll_sdmmc.c
+        - path: ../HALLIB/STM32H7xx_HAL_Driver/Src/stm32h7xx_ll_usb.c
+        - path: ../HALLIB/STM32H7xx_HAL_Driver/Src/stm32h7xx_ll_delayblock.c
+      folders: []
+    - name: Code
+      files:
+        - path: ../Code/TopSpeed_ENC.c
+        - path: ../Code/TopSpeed_ENC.h
+        - path: ../Code/TopSpeed_Motor.c
+        - path: ../Code/TopSpeed_Motor.h
+        - path: ../Code/TopSpeed_PIT.c
+        - path: ../Code/TopSpeed_PIT.h
+        - path: ../Code/TopSpeed_COM.c
+        - path: ../Code/TopSpeed_COM.h
+        - path: ../Code/TopSpeed_Movement.c
+        - path: ../Code/TopSpeed_Movement.h
+        - path: ../Code/TopSpeed_PID.c
+        - path: ../Code/TopSpeed_PID.h
+        - path: ../Code/TopSpeed_Servo.c
+        - path: ../Code/TopSpeed_Servo.h
+        - path: ../Code/3rd_Party_SDK/wit_c_sdk/REG.h
+        - path: ../Code/3rd_Party_SDK/wit_c_sdk/wit_c_sdk.c
+        - path: ../Code/3rd_Party_SDK/wit_c_sdk/wit_c_sdk.h
+      folders: []
+dependenceList: []
+outDir: build
+miscInfo:
+  uid: 991adf5248c8b11e3fc1d6977bd19689
+targets:
+  Template:
+    cppPreprocessAttrs:
+      defineList:
+        - USE_HAL_DRIVER
+        - STM32H743xx
+      incList:
+        - ../CORE
+        - .
+        - ../SYSTEM/delay
+        - ../SYSTEM/sys
+        - ../SYSTEM/usart
+        - ../HALLIB/STM32H7xx_HAL_Driver/Inc
+        - ../Code/3rd_Party_SDK/wit_c_sdk
+        - .cmsis/include
+        - RTE/_Template
+      libList: []
+    excludeList: []
+    toolchain: AC5
+    toolchainConfigMap:
+      AC5:
+        archExtensions: ""
+        cpuType: Cortex-M7
+        floatingPointHardware: double
+        options:
+          version: 4
+          afterBuildTasks: []
+          asm-compiler: {}
+          beforeBuildTasks: []
+          c/cpp-compiler:
+            CXX_FLAGS: --diag_suppress=1 --diag_suppress=1295
+            C_FLAGS: --diag_suppress=1 --diag_suppress=1295
+            c99-mode: true
+            one-elf-section-per-function: true
+            optimization: level-0
+            warnings: all-warnings
+          global:
+            output-debug-info: enable
+            use-microLIB: false
+          linker:
+            $outputTaskExcludes:
+              - .bin
+            output-format: elf
+            ro-base: "0x08000000"
+            rw-base: "0x20000000"
+            xo-base: ""
+        scatterFilePath: ""
+        storageLayout:
+          RAM:
+            - id: 1
+              isChecked: false
+              mem:
+                size: "0x0"
+                startAddr: "0x0"
+              noInit: false
+              tag: RAM
+            - id: 2
+              isChecked: false
+              mem:
+                size: "0x0"
+                startAddr: "0x0"
+              noInit: false
+              tag: RAM
+            - id: 3
+              isChecked: false
+              mem:
+                size: "0x0"
+                startAddr: "0x0"
+              noInit: false
+              tag: RAM
+            - id: 1
+              isChecked: true
+              mem:
+                size: "0x20000"
+                startAddr: "0x20000000"
+              noInit: false
+              tag: IRAM
+            - id: 2
+              isChecked: true
+              mem:
+                size: "0x80000"
+                startAddr: "0x24000000"
+              noInit: false
+              tag: IRAM
+          ROM:
+            - id: 1
+              isChecked: false
+              isStartup: false
+              mem:
+                size: "0x0"
+                startAddr: "0x0"
+              tag: ROM
+            - id: 2
+              isChecked: false
+              isStartup: false
+              mem:
+                size: "0x0"
+                startAddr: "0x0"
+              tag: ROM
+            - id: 3
+              isChecked: false
+              isStartup: false
+              mem:
+                size: "0x0"
+                startAddr: "0x0"
+              tag: ROM
+            - id: 1
+              isChecked: true
+              isStartup: true
+              mem:
+                size: "0x200000"
+                startAddr: "0x8000000"
+              tag: IROM
+            - id: 2
+              isChecked: false
+              isStartup: false
+              mem:
+                size: "0x0"
+                startAddr: "0x0"
+              tag: IROM
+        useCustomScatterFile: false
+    uploadConfigMap:
+      JLink:
+        baseAddr: ""
+        bin: ""
+        cpuInfo:
+          cpuName: "null"
+          vendor: "null"
+        otherCmds: ""
+        proType: 1
+        speed: 8000
+      STLink:
+        address: "0x8000000"
+        bin: ""
+        elFile: None
+        optionBytes: .eide/template.st.option.bytes.ini
+        otherCmds: ""
+        proType: SWD
+        resetMode: default
+        runAfterProgram: true
+        speed: 4000
+    uploader: STLink

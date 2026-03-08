@@ -1,0 +1,40 @@
+{
+    "folders": [
+        {
+            "path": "."
+        }
+    ],
+    "settings": {
+        "files.associations": {
+            "math.h": "c",
+            "topspeed_debug.h": "c",
+            "topspeed_com.h": "c",
+            "stm32h7xx_hal.h": "c",
+            "stm32h7xx_hal_conf.h": "c",
+            "stm32h7xx_hal_wwdg.h": "c",
+            "stm32h7xx_hal_lptim.h": "c",
+            "stm32h7xx_hal_ltdc.h": "c",
+            "stm32h7xx_hal_iwdg.h": "c",
+            "stm32h7xx_hal_hsem.h": "c",
+            "stm32h7xx_hal_hrtim.h": "c",
+            "stm32h7xx_hal_cryp.h": "c",
+            "stm32h7xx_hal_crc.h": "c",
+            "stm32h7xx_hal_rcc.h": "c",
+            "topspeed_motor.h": "c",
+            "stdlib.h": "c",
+            "topspeed_enc.h": "c",
+            "topspeed_pit.h": "c",
+            "topspeed_calcustom.h": "c",
+            "topspeed_stepmotor.h": "c",
+            "topspeed_servo.h": "c",
+            "topspeed_typedef.h": "c",
+            "topspeed_action.h": "c",
+            "topspeed_include.h": "c",
+            "topspeed_movement.h": "c",
+            "topspeed_busservo.h": "c",
+            "topspeed_pump.h": "c",
+            "lcd_init.h": "c"
+        }
+    },
+    "extensions": {}
+}

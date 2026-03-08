@@ -1,0 +1,27 @@
+{
+  "configurations": [
+    {
+      "name": "STM32",
+      "includePath": [
+        "${workspaceFolder}/CORE",
+        "${workspaceFolder}/HALLIB/STM32H7xx_HAL_Driver/Inc",
+        "${workspaceFolder}/USER/.cmsis/include",
+        "${workspaceFolder}/USER",
+        "${workspaceFolder}/Code",
+        "${workspaceFolder}/Code/3rd_Party_SDK/wit_c_sdk",
+        "${workspaceFolder}/Code/3rd_Party_SDK/ZDT_stepmotor",
+        // "D:/Software/Keil/ARM/ARMCC/include",
+      ],
+      "defines": [
+        "STM32H743xx",
+        "USE_HAL_DRIVER",
+        // "__CC_ARM"
+      ],
+      "compilerPath": "D:/Software/ARM_GNU_TOOLCHAIN/14.2rel1/bin/arm-none-eabi-gcc.exe",  // 或你实际的路径
+      "intelliSenseMode": "gcc-arm",
+      "cStandard": "c11",
+      "cppStandard": "c++17"
+    }
+  ],
+  "version": 4
+}
