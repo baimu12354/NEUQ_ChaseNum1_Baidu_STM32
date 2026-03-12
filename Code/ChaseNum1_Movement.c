@@ -428,8 +428,8 @@ void CN_CAR_pos_CL_init(void){//初始化电机位置环PID控制器
 }
 
 void CN_CAR_pos_CL_set_aim(Car_Movement_struct C_pos_aim){//设置位置环目标(一次性)
-    initial_yaw=YAW_now;//记录初始角度
-    C_pos=C_pos_aim;//设置目标位移
+    initial_yaw=YAW_now;     //记录初始角度
+    C_pos=C_pos_aim;         //设置目标位移
     Motor_pos_struct Motor_pos_to_set={0};
 
     PID_ctrler_reset(&Car_yaw_moving_PID_ctrler);//重置角度环PID控制器
