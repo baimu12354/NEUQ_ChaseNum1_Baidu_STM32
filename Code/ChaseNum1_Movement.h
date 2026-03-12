@@ -4,14 +4,19 @@
 #include "stm32h7xx_hal.h"
 #include "ChaseNum1_Typedef.h"
 
-extern float YAW_now;
+#define M_TO_ENC_FACTOR (1.0f)
+
+#define TRANSLATION_TOLERANCE_PRECISE   (50)
+#define ROTATION_TOLERANCE_PRECISE      (2)
+#define CONFIRM_TIME_PRECISE            (50)//*5ms
+#define TRANSLATION_TOLERANCE   (100)
+#define ROTATION_TOLERANCE      (2)
+#define CONFIRM_TIME            (10)//*5ms
+
+#define Pos_Err_LPF_LEN (20)
 
 extern uint8_t Movement_Precise_Mode;
-
-void CN_3rd_Party_JY61_IMU_init(void);//初始化陀螺仪
-uint8_t CN_auto_scan_JY61(void);//自动检测陀螺仪的波特率
-void CN_Set_YAW(float yaw);//规定当前的逻辑角度
-float CN_get_logical_yaw(void);//获取经过校准后的陀螺仪角度
+extern float distance_to_go;
 
 void CN_Movement_Change_To_Precise_Mode(void);//高精度模式
 void CN_Movement_Change_To_Normal_Mode(void);//普通模式

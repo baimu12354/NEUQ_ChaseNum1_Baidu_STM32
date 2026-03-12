@@ -36,6 +36,7 @@ void Main_COM_send_pack(Main_CMD_ENUM CMD,uint8_t *load,uint8_t load_len){
 void Main_COM_Response_CALLBACK(void){
     if(Package_get.done==0){
         switch(Package_get.CMD){
+            // 上位机握手请求
             case Main_CMD_HELLO:{
                 printf("get CMD_HELLO\n");
                 uint8_t response[2]={Main_CMD_INLINE,0x00};
@@ -45,6 +46,7 @@ void Main_COM_Response_CALLBACK(void){
                 break;
             }
 
+            // 上位机状态获取请求
             case Main_CMD_STATUS:{
                 printf("get CMD_STATUS\n");
                 uint8_t response[2]={Main_CMD_ASTATUS,SYS_STATUS.all};
@@ -54,12 +56,14 @@ void Main_COM_Response_CALLBACK(void){
                 break;
             }
 
+            // 上位机运动请求
             case Main_CMD_SETMOVEMENT:{
                 printf("get CMD_SETM\n");
                 CMD_SETM_load_struct CMD_SETM_load;
                 CMD_SETM_load.Movement_type=Package_get.load[0];
                 memcpy(&CMD_SETM_load.Movement,&Package_get.load[1],Package_get.load_len-1);
-                if(CMD_SETM_load.Movement_type==Movement_Set_speed){
+                // 设置速度
+                if(CMD_SETM_load.Movement_type==Movement_Set_speed || CMD_SETM_load.Movement_type==Movement_Set_angvel){
                     if(SYS_STATUS.bits.SYS_INITED){
                         SYS_STATUS.bits.SYS_INLINE=1;
                         SYS_STATUS.bits.SYS_MOVING=0;
@@ -75,6 +79,7 @@ void Main_COM_Response_CALLBACK(void){
                         CN_send_Response(Main_CMD_ERR,response);   
                     }                    
                 }
+                // 发起 平移 或者 旋转
                 else if(CMD_SETM_load.Movement_type==Movement_Translation || CMD_SETM_load.Movement_type==Movement_Rotation){
                     if(Movement_Precise_Mode){
                         CN_Movement_Change_To_Normal_Mode();
@@ -88,6 +93,7 @@ void Main_COM_Response_CALLBACK(void){
                     uint8_t response[2]={CMD_SETMOVEMENT,Package_get.check};
                     CN_send_Response(CMD_RECVCMD,response);   
                 }
+                // 发起 精密平移 或者 精密旋转
                 else if(CMD_SETM_load.Movement_type==Movement_Translation_Precise || CMD_SETM_load.Movement_type==Movement_Rotation_Precise){
                     if(!Movement_Precise_Mode){
                         CN_Movement_Change_To_Precise_Mode();
@@ -109,7 +115,7 @@ void Main_COM_Response_CALLBACK(void){
                 Package_get.done=1;
                 break;
             }
-
+            // 上位机参数获取请求（相对于此前上位机设定值、若上位机未设定则相对于车身初始值）
             case Main_CMD_GETPARA:{
                 printf("get CMD_REQ:%x\n",Package_get.load[0]);
                 switch(Package_get.load[0]){
@@ -129,6 +135,7 @@ void Main_COM_Response_CALLBACK(void){
                 break;
             }
 
+            // 开启
             case Main_CMD_INLINE:{
                 printf("get CMD_INLINE\n");
                 if(SYS_STATUS.bits.SYS_INITED==1){

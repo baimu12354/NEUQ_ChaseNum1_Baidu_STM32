@@ -44,24 +44,20 @@ int main(void){
 
 	CN_PIT_1_init_ms(1,3);          // PIT1初始化 服务于底盘运动控制和运动完成检测（1ms）
     SYS_STATUS.bits.SYS_INITED=1;
-
-    SYS_STATUS.bits.SYS_MOVING=1;
-    SYS_STATUS.bits.SYS_INLINE=0;
-    SYS_STATUS.bits.SYS_ROTATING=0;
-
-	Car_Movement_struct movement_test={
-       .Car_X_movement = 10000,
-	   .Car_Y_movement = 5000,
-	   .Car_Z_rotation = 0,
-	   .Car_speed = 0,
-	   .Car_angvel = 0
-	};
-
-    CN_set_movement(movement_test, Movement_Translation, 1);
+    
+	// // 运动指令测试
+	// Car_Movement_struct movement_test={
+    //    .Car_X_movement = 30000,
+	//    .Car_Y_movement = 10000,
+	//    .Car_Z_rotation = 90,
+	//    .Car_speed = 0,
+	//    .Car_angvel = 0
+	// };
+    // CN_set_movement(movement_test, Movement_Translation, 1);
 
 	while(1){
-		 //Main_COM_Response_CALLBACK();//处理通信指令
-		 HAL_Delay(500);
+		 Main_COM_Response_CALLBACK();//处理通信指令
+	     HAL_Delay(500);
 	}
 }
 

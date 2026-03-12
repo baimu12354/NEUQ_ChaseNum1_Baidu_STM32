@@ -3,6 +3,7 @@
 #include "ChaseNum1_calcustom.h"
 #include "ChaseNum1_COM.h"
 #include "ChaseNum1_ENC.h"
+#include "ChaseNum1_IMU.h"
 #include "ChaseNum1_Motor.h"
 #include "ChaseNum1_Movement.h"
 #include "ChaseNum1_PID.h"
