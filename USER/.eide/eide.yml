@@ -131,7 +131,8 @@ targets:
         - .cmsis/include
         - RTE/_Template
       libList: []
-    excludeList: []
+    excludeList:
+      - ../Code/ChaseNum1_TFT180/ChaseNum1_FIFO.c
     toolchain: AC5
     toolchainConfigMap:
       AC5:

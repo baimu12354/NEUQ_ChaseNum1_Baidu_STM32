@@ -107,6 +107,17 @@ typedef struct{
 }Action_CMD_struct;
 #pragma endregion
 
+#pragma region FIFO_TYPEDEF_REGION
+typedef struct{
+    uint8_t *temp;
+    uint16_t temp_len;
+
+    uint16_t head;
+    uint16_t tail;
+
+    uint8_t is_FIFO_full;
+}CN_FIFO_struct;
+#pragma endregion
 
 #pragma region MOTOR_TYPEDEF_REGION
 //定义使得车前进的电机旋转方向为正方向

@@ -5,7 +5,7 @@
 #define USE_CHERRY_DRIVER   (1)
 
 #define CN_PWM_PRELOAD  (10000)
-#define CN_PWM_MAX  (8000-1)
+#define CN_PWM_MAX  (4000-1)
 
 TIM_HandleTypeDef TIM8_Motor_Handle={0};
 TIM_HandleTypeDef TIM1_Motor_Handle={0};

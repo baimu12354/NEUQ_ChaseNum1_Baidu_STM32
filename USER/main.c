@@ -28,36 +28,27 @@ int main(void){
 	Stm32_Clock_Init(160,5,2,8);        // 设置时钟,系统时钟为400Mhz(特定外设时钟为100Mhz)
 	delay_init(400);
 
-   	CN_Motor_init();          // 电机初始化
+	 Servo_Init();    // 总线舵机初始化
+   	 CN_Motor_init();          // 电机初始化
 	
-	CN_UART1_init();          // debug调试串口
-	Main_COM_init();	      // 上位机通信串口
-	CN_PIT_3_init_us(10,0);       // PIT3初始化 服务于系统延时（10us）
+	 CN_UART1_init();          // debug调试串口
+	 Main_COM_init();	      // 上位机通信串口
+	 CN_PIT_3_init_us(10,0);       // PIT3初始化 服务于系统延时（10us）
 
-	CN_move_init();                 // 底盘运动初始化
-	CN_TIM_Motor_PWMOUT_ENA();        // 启用电机PWM输出
+	 CN_move_init();                 // 底盘运动初始化
+	 CN_TIM_Motor_PWMOUT_ENA();        // 启用电机PWM输出
 
-	CN_3rd_Party_JY61_IMU_init();	 // 初始化陀螺仪
-	printf("JY61 init\n");
+	 CN_3rd_Party_JY61_IMU_init();	 // 初始化陀螺仪
+	 printf("JY61 init\n");
 
-    CN_TIM2345_ENC_init();		     // 编码器
+     CN_TIM2345_ENC_init();		     // 编码器
 
-	CN_PIT_1_init_ms(1,3);          // PIT1初始化 服务于底盘运动控制和运动完成检测（1ms）
-    SYS_STATUS.bits.SYS_INITED=1;
+	 CN_PIT_1_init_ms(1,3);          // PIT1初始化 服务于底盘运动控制和运动完成检测（1ms）
+     SYS_STATUS.bits.SYS_INITED=1;
     
-	// // 运动指令测试
-	// Car_Movement_struct movement_test={
-    //    .Car_X_movement = 30000,
-	//    .Car_Y_movement = 10000,
-	//    .Car_Z_rotation = 90,
-	//    .Car_speed = 0,
-	//    .Car_angvel = 0
-	// };
-    // CN_set_movement(movement_test, Movement_Translation, 1);
-
 	while(1){
-		 Main_COM_Response_CALLBACK();//处理通信指令
-	     HAL_Delay(500);
+		Main_COM_Response_CALLBACK();
+		HAL_Delay(100);
 	}
 }
 

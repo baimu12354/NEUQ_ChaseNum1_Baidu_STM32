@@ -10,6 +10,9 @@
 #include "ChaseNum1_PIT.h"
 #include "ChaseNum1_Trigger.h"
 #include "ChaseNum1_TFT.h"
+#include "ChaseNum1_Uart.h"
+#include "ChaseNum1_FIFO.h"
+#include "ChaseNum1_BusServo.h"
 
 #include "ChaseNum1_Menu.h"
 
