@@ -1,154 +1,164 @@
 #include "ChaseNum1_Include.h"
 #include <math.h>
 
-uint32_t movement_done_counter=0;
+Car_Movement_struct Whole_Movement = {0};       // 全局运动信息
+Movement_type_ENUM Whole_Movement_Type = 0;       // 全局运动状态
 
+PID_ctrler Car_anv_PID_ctrler={0};
 PID_ctrler Car_yaw_PID_ctrler={0};
 PID_ctrler Car_yaw_moving_PID_ctrler={0};
 
-static uint8_t cmd_check=0;
-
 /****************************运动功能函数***************************/
-// 运动容忍度设置
-float Translation_Tolerance=TRANSLATION_TOLERANCE;    
-float Rotation_Tolerance=ROTATION_TOLERANCE;
-float Confirm_Time=CONFIRM_TIME;
-
-// 运动模式 0：为普通模式 1：为精确模式
-uint8_t Movement_Precise_Mode=0;
-
-// 位置误差低通滤波数组
-uint32_t Pos_Err_LPF_Cnt=0;
-int M_FL_Pos_Err_LPF[Pos_Err_LPF_LEN]={0};
-int M_FR_Pos_Err_LPF[Pos_Err_LPF_LEN]={0};
-int M_BL_Pos_Err_LPF[Pos_Err_LPF_LEN]={0};
-int M_BR_Pos_Err_LPF[Pos_Err_LPF_LEN]={0};
-
 // 运动初始化
 void CN_move_init(void){
-    CN_Motor_pos_CL_init();//初始化电机位置环
-    CN_CAR_yaw_CL_init();//初始化车身角度环
-    CN_CAR_pos_CL_init();//初始化车身位置环
+    CN_CAR_vel_CL_init();  // 车身速度环初始化
+    CN_CAR_yaw_CL_init();  // 车身角度环初始化
+    CN_CAR_anv_CL_init();  // 车身角速度环初始化
+    CN_CAR_pos_CL_init();  // 车身位置环初始化
 }
 
-// 设置运动模式和目标
-void CN_set_movement(Car_Movement_struct movement,Movement_type_ENUM movement_type,uint8_t cmd_check_get){
-    Motor_pos_struct Motor_pos_to_set={0};
-    cmd_check=cmd_check_get;
+// 设置目标和运动模式
+void CN_set_movement(Car_Movement_struct movement,Movement_type_ENUM movement_type){
+    if (Whole_Movement_Type != movement_type) {
+        // PID控制器清空
+        PID_ctrler_reset(&Car_yaw_moving_PID_ctrler);
+        PID_ctrler_reset(&Car_anv_PID_ctrler);
+        PID_ctrler_reset(&Car_yaw_PID_ctrler);
+        PID_ctrler_reset(&FL_pos_PID_ctrler);
+        PID_ctrler_reset(&FR_pos_PID_ctrler);
+        PID_ctrler_reset(&BL_pos_PID_ctrler);
+        PID_ctrler_reset(&BR_pos_PID_ctrler);
+        Whole_Movement_Type = movement_type;
+    }
+    switch (movement_type){
+        case Movement_Breaking:{
+            CN_Intr_Movement();
+            break;
+        }
+        case Movement_Rotation:{
+            target_yaw = movement.Car_angle;
+            YAW_inital = YAW_now; // 起始角度
+            YAW_gain = 0;  // 累计角度
+            YAW_pre = YAW_inital;   // 上一次的角度
+            CN_CAR_vel_CL_set_aim(0,0);
+            CN_CAR_anv_CL_set_aim(movement.Car_angvel);
+            break;
+        }
+        case Movement_Running:{
+            
+            CN_CAR_vel_CL_set_aim(movement.Car_X_vel,movement.Car_Y_vel);
+            CN_CAR_rotation_set_aim(movement.Car_angvel);
+            break;
+        }
+        case Movement_Translation:{
+            CN_CAR_pos_CL_set_aim(movement);
+            break;
+        }
+        default:{
+            break;
+        }
+    }
 
-    if(movement_type==Movement_Translation || movement_type==Movement_Translation_Precise){
-        printf("set movement: translation,X:%f,Y:%f\n",movement.Car_X_movement,movement.Car_Y_movement);
-        // Motor_pos_to_set.M_FL_Pos=(movement.Car_Y_movement+movement.Car_X_movement)*M_TO_ENC_FACTOR;
-        // Motor_pos_to_set.M_FR_Pos=(movement.Car_Y_movement-movement.Car_X_movement)*M_TO_ENC_FACTOR;
-        // Motor_pos_to_set.M_BL_Pos=(movement.Car_Y_movement-movement.Car_X_movement)*M_TO_ENC_FACTOR;
-        // Motor_pos_to_set.M_BR_Pos=(movement.Car_Y_movement+movement.Car_X_movement)*M_TO_ENC_FACTOR;
-        // TS_Motor_pos_CL_set_aim(Motor_pos_to_set);
-        //printf("set movement: rotation:%f\n",movement.Car_Z_rotation);
-        //printf("set movement: speed:%f\n",movement.Car_speed);
-        CN_CAR_pos_CL_set_aim(movement);
-        SYS_STATUS.bits.SYS_MOVING=1;
-        SYS_STATUS.bits.SYS_INLINE=0;
-        SYS_STATUS.bits.SYS_ROTATING=0;
-    }
-    else if(movement_type==Movement_Rotation || movement_type==Movement_Rotation_Precise){
-        printf("set movement: rotation:%f\n",movement.Car_Z_rotation);
-        CN_CAR_yaw_CL_set_aim(movement.Car_Z_rotation);
-        SYS_STATUS.bits.SYS_MOVING=0;
-        SYS_STATUS.bits.SYS_INLINE=0;
-        SYS_STATUS.bits.SYS_ROTATING=1;
-    }
-    else if(movement_type==Movement_Set_speed || movement_type==Movement_Set_angvel){
-        printf("set movement: speed:%f\n",movement.Car_speed);
-        SYS_STATUS.bits.SYS_INLINE=1;
-        SYS_STATUS.bits.SYS_MOVING=0;
-        SYS_STATUS.bits.SYS_ROTATING=0;
-        CN_CAR_vel_CL_set_aim(movement);
-    }
-    else{
-        printf("unknow type:%x\n",movement_type);
-    }
+   
 }
 
 // 运动停止
 void CN_Intr_Movement(void){
-    uint32_t CH1_8[8]={0};
-    CN_TIM_Motor_PWM_duty_set(CH1_8);
-    SYS_STATUS.bits.SYS_ACTING=0;
-    SYS_STATUS.bits.SYS_INLINE=0;
-    SYS_STATUS.bits.SYS_PUMPACTIVE=0;
-    SYS_STATUS.bits.SYS_ROTATING=0;
-    SYS_STATUS.bits.SYS_MOVING=0;
-}
+    CN_CAR_vel_CL_set_aim(0, 0);
+    CN_CAR_anv_CL_set_aim(0); 
+    CN_CAR_rotation_set_aim(0);
 
-// 运动精确模式设置
-void CN_Movement_Change_To_Precise_Mode(void){
-    Movement_Precise_Mode=1;
-    Translation_Tolerance=TRANSLATION_TOLERANCE_PRECISE;
-    Rotation_Tolerance=ROTATION_TOLERANCE_PRECISE;
-    Confirm_Time=CONFIRM_TIME_PRECISE;
-
-    printf("change to precise mode\n");
-}
-
-// 运动普通模式设置
-void CN_Movement_Change_To_Normal_Mode(void){
-    Movement_Precise_Mode=0;
-    Translation_Tolerance=TRANSLATION_TOLERANCE;
-    Rotation_Tolerance=ROTATION_TOLERANCE;
-    Confirm_Time=CONFIRM_TIME;
-
-    printf("change to normal mode\n");
+    Duty_now.M_FL_Duty = 0;
+    Duty_now.M_FR_Duty = 0;
+    Duty_now.M_BL_Duty = 0;
+    Duty_now.M_BR_Duty = 0;
+    CN_set_Motor_Duty();
 }
 
 // 运动回调函数
-void CN_Movement_ctrl_CALLBACK(uint32_t us_delta_time){
-    if(SYS_STATUS.bits.SYS_INLINE==1){
-        CN_Motor_vel_CL_CALLBACK(us_delta_time);
-    }
-    else{
-        if(SYS_STATUS.bits.SYS_MOVING==1){
-            CN_CAR_pos_CL_CALLBACK(us_delta_time);
+void CN_Movement_ctrl_CALLBACK(uint32_t ms){
+    static uint32_t time = 0;
+    time += ms;
+    time = (time > 1000) ? 0 : time;
+    switch (Whole_Movement_Type){
+        case Movement_Breaking:{
+            //CN_Intr_Movement();
+            YAW_aim =  YAW_now;
+            break;
         }
-        else if(SYS_STATUS.bits.SYS_ROTATING==1){
-            CN_CAR_yaw_CL_CALLBACK(us_delta_time);
+        case Movement_Running:{
+            if (time % 100 == 0){
+                YAW_aim = CN_yaw_add(YAW_aim,YAW_acc * 0.1);
+            }
+            if (time % 20 == 0){
+               CN_CAR_yaw_CL_CALLBACK(10000); 
+            }
+            if (time % 10 == 0){
+               CN_CAR_anv_CL_CALLBACK(5000);
+            }
+            if (time % 5 == 0){
+              
+              CN_CAR_vel_CL_CALLBACK(1000);
+            }
+            break;
         }
-    }
-}
+        case Movement_Rotation:{
+            float YawDelta = YAW_now - YAW_pre;
+            if (YawDelta > 180){
+                YawDelta -= 360;
+            }
+            else if (YawDelta < -180){
+                YawDelta += 360;
+            }
+            YAW_gain += YawDelta;
 
-// 运动完成检查回调函数（用于容忍度判断）
-void CN_Movement_done_check_CALLBACK(void){
-    if(SYS_STATUS.bits.SYS_MOVING==1){
-        if(distance_to_go < Translation_Tolerance) {
-            movement_done_counter++;
-        } else {
-            movement_done_counter=0;
-        }
-    }
-    else if(SYS_STATUS.bits.SYS_ROTATING==1){
-        if(fabsf(YAW_aim-YAW_now)<Rotation_Tolerance){
-            movement_done_counter++;
-        }
-        else{
-            movement_done_counter=0;
-        }
-    }
-    else{
-        movement_done_counter=0;
-    }
+            // 旋转至目标值 切换回运行状态
+            if (YAW_gain >= target_yaw){
+                Car_Movement_struct TempMovement ={
+                       .Car_X_movement = 0,
+                       .Car_Y_movement = 0,
+                       .Car_angle = 0, 
 
-    if(movement_done_counter>=Confirm_Time && (SYS_STATUS.bits.SYS_MOVING==1 || SYS_STATUS.bits.SYS_ROTATING==1)){
-        CN_Motor_outline();
-        if(SYS_STATUS.bits.SYS_MOVING==1){
-            SYS_STATUS.bits.SYS_MOVING=0;
-            uint8_t response=CMDDONE_type_moving;
-            CN_send_Response(Main_CMD_CMDDONE,&response);
+                       .Car_X_vel = 0,      // 车身的横向速度
+                       .Car_Y_vel = 0,      // 车身的纵向速度
+                       .Car_angvel = 0     // 车身的角速度
+                };
+                CN_set_movement(TempMovement,Movement_Running);
+                break;
+            }
+            if (fabs(target_yaw - YAW_gain) < 5){
+                CN_CAR_anv_CL_set_aim(1);
+            }
+
+            if (time % 10 == 0){
+               CN_CAR_anv_CL_CALLBACK(5000);
+            }
+            if (time % 5 == 0){
+              CN_CAR_vel_CL_CALLBACK(1000);
+            }
+            YAW_pre = YAW_now;
+            YAW_aim =  YAW_now;
+            break;
         }
-        if(SYS_STATUS.bits.SYS_ROTATING==1){
-            SYS_STATUS.bits.SYS_ROTATING=0;
-            uint8_t response=CMDDONE_type_rotating;
-            CN_send_Response(Main_CMD_CMDDONE,&response);
+        case Movement_Translation:{
+            if (distance_to_go < 10.f){
+                Car_Movement_struct TempMovement ={
+                       .Car_X_movement = 0,
+                       .Car_Y_movement = 0,
+                       .Car_angle = 0, 
+
+                       .Car_X_vel = 0,      // 车身的横向速度
+                       .Car_Y_vel = 0,      // 车身的纵向速度
+                       .Car_angvel = 0     // 车身的角速度
+                };
+                CN_set_movement(TempMovement,Movement_Running);
+                break;
+            }
+            if (time % 5 == 0){
+                CN_CAR_pos_CL_CALLBACK(5000);
+            }
+            break;
         }
-        movement_done_counter=0;
     }
 }
 /****************************运动功能函数***************************/
@@ -161,6 +171,19 @@ void CN_Movement_done_check_CALLBACK(void){
 #define CAR_YAW_CL_PID_IMAX (0)
 #define CAR_YAW_CL_PID_OUTMAX (10)
 
+
+float YAW_acc = 0; // 角度增量
+
+float target_yaw = 0; // 目标角度（任意角度）
+float YAW_inital = 0; // 起始角度
+float YAW_gain = 0;  // 累计角度
+float YAW_pre = 0;   // 上一次的角度
+
+// 设置目标角度增量（连续的、模拟角速度）
+void CN_CAR_rotation_set_aim(float oumiga){
+    YAW_acc = oumiga;
+}
+
 // 车身角度环初始化
 void CN_CAR_yaw_CL_init(void){
     init_PID_ctrler(&Car_yaw_PID_ctrler,CAR_YAW_CL_PID_KP,CAR_YAW_CL_PID_KI,CAR_YAW_CL_PID_KD,CAR_YAW_CL_PID_IMAX,CAR_YAW_CL_PID_OUTMAX);
@@ -170,22 +193,18 @@ void CN_CAR_yaw_CL_init(void){
 void CN_CAR_yaw_CL_CALLBACK(uint32_t us_time){
     float YAW_err=CN_get_relative_angle(YAW_now,YAW_aim);
 
+    // if (YAW_err < -180) {
+    //     YAW_err += 360;
+    // }
+    // else if (YAW_err > 180){
+    //     YAW_err -= 360;
+    // }
+    // 死区设置
     YAW_err=fabs(YAW_err)<1?0:YAW_err;
-
-    PID_ctrler_update(&Car_yaw_PID_ctrler,YAW_err);
-    //更新位置环输出
-
-    float Rotation_spd=Car_yaw_PID_ctrler.output;
-
-    Vel_aim.M_FL_Vel=Rotation_spd;
-    Vel_aim.M_FR_Vel=-Rotation_spd;
-    Vel_aim.M_BL_Vel=Rotation_spd;
-    Vel_aim.M_BR_Vel=-Rotation_spd;
-    //将位置环输出作为转速环输入
-
-    // printf("%.2f,%.2f\n",YAW_now,YAW_aim);
-
-    CN_Motor_vel_CL_CALLBACK(us_time);//调用速度环更新
+    // 更新角度环输出
+    PID_ctrler_update_with_time(&Car_yaw_PID_ctrler,YAW_err,us_time);
+    // 设置目标角速度
+    CN_CAR_anv_CL_set_aim(Car_yaw_PID_ctrler.output);
 }
 
 // 获取两个绝对方位角之间的相对方位角
@@ -205,45 +224,82 @@ float CN_yaw_add(float now,float aim){
 }
 
 // 设置目标角度
-void CN_CAR_yaw_CL_set_aim(float yaw){//设置位置环目标(一次性)
-    YAW_aim=CN_yaw_add(YAW_now,yaw);//设置目标位置
+void CN_CAR_yaw_CL_set_aim(float yaw){
+    YAW_aim=CN_yaw_add(YAW_now,yaw);
 }
 /****************************车身角度环***************************/
 
 
-/****************************车身速度环***************************/
-// 初始化电机位置环PID控制器
-void CN_CAR_vel_CL_init(void){
-    CN_Motor_vel_CL_init();  // 电机速度环初始化
-    CN_CAR_yaw_CL_init();    // 车身角度环初始化（车身速度需要调用角度环以实现转速分配）
+/****************************车身角速度环***************************/
+#define CAR_ANV_CL_PID_KP     (2.0f)
+#define CAR_ANV_CL_PID_KI     (0.0f)
+#define CAR_ANV_CL_PID_KD     (1.0f)
+#define CAR_ANV_CL_PID_IMAX    (10.0f)
+#define CAR_ANV_CL_PID_OUTMAX   (20.0f)
+
+float target_anv = 0;
+
+// 角速度环初始化
+void CN_CAR_anv_CL_init(void){
+    init_PID_ctrler(&Car_anv_PID_ctrler,CAR_ANV_CL_PID_KP,CAR_ANV_CL_PID_KI,CAR_ANV_CL_PID_KD,CAR_ANV_CL_PID_IMAX,CAR_ANV_CL_PID_OUTMAX);
 }
 
-// 设置速度环目标(一次性)
-void CN_CAR_vel_CL_set_aim(Car_Movement_struct C_vel_aim){
-    Motor_vel_struct M_vel={0};//行进速度分量
+// 设置目标角速度
+void CN_CAR_anv_CL_set_aim(float anv){
+    target_anv = anv;
+}
 
-    M_vel.M_FL_Vel=C_vel_aim.Car_speed-C_vel_aim.Car_angvel;
-    M_vel.M_FR_Vel=C_vel_aim.Car_speed+C_vel_aim.Car_angvel;
-    M_vel.M_BL_Vel=C_vel_aim.Car_speed-C_vel_aim.Car_angvel;
-    M_vel.M_BR_Vel=C_vel_aim.Car_speed+C_vel_aim.Car_angvel;
+// 角速度环控制回调
+void CN_CAR_anv_CL_CALLBACK(uint32_t us_time){
+    float anv_err = target_anv - IMU_data.G_Z;     // rad/s
 
-    CN_Motor_vel_CL_set_aim(M_vel);
+    if (fabs(anv_err) < 0.01f) {
+        anv_err = 0;
+    }
+    PID_ctrler_update_with_time(&Car_anv_PID_ctrler, anv_err,us_time);
+    
+}
+/****************************车身角速度环***************************/
+
+/****************************车身速度环***************************/
+float target_VelX = 0;
+float target_VelY = 0;
+
+// 速度环初始化
+void CN_CAR_vel_CL_init(void){
+    CN_Motor_vel_CL_init();  // 电机速度环初始化
+}
+
+// 设置目标速度
+void CN_CAR_vel_CL_set_aim(float VelX, float VelY){
+    target_VelX = VelX;
+    target_VelY = VelY;
+}
+
+// 速度环控制回调
+void CN_CAR_vel_CL_CALLBACK(uint32_t us_time){
+    // 计算速度 
+    Vel_aim.M_FL_Vel = (target_VelY + target_VelX + Car_anv_PID_ctrler.output) * M_TO_ENC_FACTOR;
+    Vel_aim.M_FR_Vel = (target_VelY - target_VelX - Car_anv_PID_ctrler.output) * M_TO_ENC_FACTOR;
+    Vel_aim.M_BL_Vel = (target_VelY - target_VelX + Car_anv_PID_ctrler.output) * M_TO_ENC_FACTOR;
+    Vel_aim.M_BR_Vel = (target_VelY + target_VelX - Car_anv_PID_ctrler.output) * M_TO_ENC_FACTOR;
+    CN_Motor_vel_CL_CALLBACK(us_time);
 }
 /****************************车身速度环***************************/
 
 /**************************** 改进版车身位置环 ***************************/
-#define CAR_YAW_MOVING_CL_PID_KP (0.7f)
-#define CAR_YAW_MOVING_CL_PID_KI (0)//*200hz=2
-#define CAR_YAW_MOVING_CL_PID_KD (2.0f)
+#define CAR_YAW_MOVING_CL_PID_KP (5.0f)
+#define CAR_YAW_MOVING_CL_PID_KI (0.00f)    //*200hz=2
+#define CAR_YAW_MOVING_CL_PID_KD (10.0f)
 #define CAR_YAW_MOVING_CL_PID_IMAX (2)
-#define CAR_YAW_MOVING_CL_PID_OUTMAX (5)
+#define CAR_YAW_MOVING_CL_PID_OUTMAX (10)
 
 // 运动参数配置
 #define MAX_CAR_SPEED 50.0f     // 最大合速度 (单位/s)
 #define MIN_CAR_SPEED 5.0f      // 最小有效速度
 #define ACCEL_RATE 2.0f         // 加速度系数
 
-#define TEST_SPEED 10.0f        // 测试速度
+#define TEST_SPEED 20.0f        // 测试速度
 
 typedef struct{
     float x;
@@ -303,7 +359,7 @@ void CN_CAR_pos_CL_CALLBACK(uint32_t us_time) {
 
     // 姿态修正 (Yaw)
     float yaw_err = CN_get_relative_angle(YAW_now, initial_yaw);
-    yaw_err=fabs(yaw_err)<1?0:yaw_err;    // 到达死区
+    yaw_err=fabs(yaw_err)<3.0?0:yaw_err;    // 到达死区
     PID_ctrler_update(&Car_yaw_moving_PID_ctrler, yaw_err);
     float v_theta = Car_yaw_moving_PID_ctrler.output; 
 
@@ -318,6 +374,8 @@ void CN_CAR_pos_CL_CALLBACK(uint32_t us_time) {
     Pos_now.M_FR_Pos += Vel_now.M_FR_Vel;
     Pos_now.M_BL_Pos += Vel_now.M_BL_Vel;
     Pos_now.M_BR_Pos += Vel_now.M_BR_Vel;
+
+    // printf("%.3f,%.3f,%.3f\n",cur_x,cur_y,yaw_err);
 
     // 调用速度环
     CN_Motor_vel_CL_CALLBACK(us_time);

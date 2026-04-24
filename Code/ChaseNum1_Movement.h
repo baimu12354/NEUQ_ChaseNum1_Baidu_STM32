@@ -6,36 +6,57 @@
 
 #define M_TO_ENC_FACTOR (1.0f)
 
-#define TRANSLATION_TOLERANCE_PRECISE   (50)
-#define ROTATION_TOLERANCE_PRECISE      (2)
-#define CONFIRM_TIME_PRECISE            (50)//*5ms
-#define TRANSLATION_TOLERANCE   (100)
-#define ROTATION_TOLERANCE      (2)
-#define CONFIRM_TIME            (10)//*5ms
+extern PID_ctrler Car_anv_PID_ctrler;
+extern PID_ctrler Car_yaw_PID_ctrler;
+extern PID_ctrler Car_yaw_moving_PID_ctrler;
 
-#define Pos_Err_LPF_LEN (20)
+// 用于旋转
+extern float target_yaw;    // 目标旋转角度
+extern float YAW_inital;    // 初始角度（用于记录运动之前的车身姿态）
+extern float YAW_gain;  // 累计角度
+extern float YAW_pre;   // 上一次的角度
 
-extern uint8_t Movement_Precise_Mode;
+// 用于运动
+extern float YAW_acc;       // 角度增量（用于驱动车身以固定的角速度旋转）
+extern float target_anv;    // 目标角速度
+extern float target_VelX;   // 目标横向速度
+extern float target_VelY;   // 目标纵向速度
+
+// 用于定位
 extern float distance_to_go;
 
-void CN_Movement_Change_To_Precise_Mode(void);//高精度模式
-void CN_Movement_Change_To_Normal_Mode(void);//普通模式
 void CN_move_init(void);//运动模块初始化
-
-void CN_set_movement(Car_Movement_struct movement,Movement_type_ENUM movement_type,uint8_t cmd_check_get);//外部调用函数的接口
-void CN_Movement_done_check_CALLBACK(void);//检查运动是否完成
-
-void CN_Movement_ctrl_CALLBACK(uint32_t us_delta_time);//运动控制入口
+void CN_set_movement(Car_Movement_struct movement,Movement_type_ENUM movement_type);//外部调用函数的接口
+void CN_Movement_ctrl_CALLBACK(uint32_t ms);//运动控制入口
 void CN_Intr_Movement(void);//停止运动
+ 
+// 设置目标角度增量（连续的、模拟角速度）
+void CN_CAR_rotation_set_aim(float oumiga);
+// 车身角度环初始化
+void CN_CAR_yaw_CL_init(void);
+// 车身角度环回调函数
+void CN_CAR_yaw_CL_CALLBACK(uint32_t us_time);
+// 获取两个绝对方位角之间的相对方位角
+float CN_get_relative_angle(float now,float aim);
+// 获取目标逻辑角度
+float CN_yaw_add(float now,float aim);
+// 设置目标角度
+void CN_CAR_yaw_CL_set_aim(float yaw);
 
-void CN_CAR_yaw_CL_init(void);//初始化角度环参数
-void CN_CAR_yaw_CL_CALLBACK(uint32_t us_time);//执行角度环函数
-void CN_CAR_yaw_CL_set_aim(float yaw);//设定目标角度
-float CN_get_relative_angle(float now,float aim);//解决过零点问题
+// 角速度环初始化
+void CN_CAR_anv_CL_init(void);
+// 设置目标角速度
+void CN_CAR_anv_CL_set_aim(float anv);
+// 角速度环控制回调
+void CN_CAR_anv_CL_CALLBACK(uint32_t us_time);
 
-void CN_CAR_vel_CL_init(void);//初始化速度环
-void CN_CAR_vel_CL_CALLBACK(uint32_t us_time);//执行速度环
-void CN_CAR_vel_CL_set_aim(Car_Movement_struct C_vel);//设定目标速度
+// 速度环初始化
+void CN_CAR_vel_CL_init(void);
+// 设置目标速度
+void CN_CAR_vel_CL_set_aim(float VelX, float VelY);
+// 速度环控制回调
+void CN_CAR_vel_CL_CALLBACK(uint32_t us_time);
+
 
 void CN_CAR_pos_CL_init(void);//初始化位置环
 void CN_CAR_pos_CL_set_aim(Car_Movement_struct C_pos_aim);//设定目标位置

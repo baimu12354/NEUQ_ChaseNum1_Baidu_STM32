@@ -26,7 +26,6 @@ void CN_TIM8_Motor_init(void);
 void CN_TIM1_Motor_init(void);
 void CN_TIM14_Motor_init(void);
 void CN_TIM16_Motor_init(void);
-void CN_TIM4_Motor_init(void);
 void CN_Motor_init(void);
 void CN_TIM_Motor_PWMOUT_ENA(void);
 void CN_TIM_Motor_PWMOUT_DISA(void);
@@ -46,12 +45,6 @@ void CN_Motor_outline(void);
 void CN_Milemeter_set(float milemeter_value);
 float CN_get_Milemeter(void);
 /****************************电机转速环***************************/
-
-/****************************电机位置环***************************/
-void CN_Motor_pos_CL_init(void);
-void CN_Motor_pos_CL_CALLBACK(uint32_t us_time);
-void CN_Motor_pos_CL_set_aim(Motor_pos_struct aim);
-/****************************电机位置环***************************/
 
 extern PID_ctrler FL_pos_PID_ctrler;
 extern PID_ctrler FR_pos_PID_ctrler;

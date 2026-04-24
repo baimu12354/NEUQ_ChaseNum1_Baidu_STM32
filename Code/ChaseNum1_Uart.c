@@ -53,23 +53,23 @@ uint8_t UART_8_RX_dat=0;
 void CN_UART1_init(void){
     GPIO_InitTypeDef GPIO_Initure={0};
 
-    // //使用车载接口
-    //  __HAL_RCC_GPIOB_CLK_ENABLE();
-    // GPIO_Initure.Pin=GPIO_PIN_14|GPIO_PIN_15;
-	// GPIO_Initure.Mode=GPIO_MODE_AF_PP;      //复用模式
-	// GPIO_Initure.Pull=GPIO_PULLUP;              //上拉
-	// GPIO_Initure.Speed=GPIO_SPEED_FREQ_HIGH;    //高速
-    // GPIO_Initure.Alternate=GPIO_AF4_USART1;
-	// HAL_GPIO_Init(GPIOB,&GPIO_Initure);
-
-    //使用下载器串口
-    __HAL_RCC_GPIOA_CLK_ENABLE();
-    GPIO_Initure.Pin=GPIO_PIN_9|GPIO_PIN_10;
+    //使用车载接口
+    __HAL_RCC_GPIOB_CLK_ENABLE();
+    GPIO_Initure.Pin=GPIO_PIN_14|GPIO_PIN_15;
 	GPIO_Initure.Mode=GPIO_MODE_AF_PP;      //复用模式
 	GPIO_Initure.Pull=GPIO_PULLUP;              //上拉
 	GPIO_Initure.Speed=GPIO_SPEED_FREQ_HIGH;    //高速
-    GPIO_Initure.Alternate=GPIO_AF7_USART1;
-	HAL_GPIO_Init(GPIOA,&GPIO_Initure);
+    GPIO_Initure.Alternate=GPIO_AF4_USART1;
+	HAL_GPIO_Init(GPIOB,&GPIO_Initure);
+
+    // //使用下载器串口
+    // __HAL_RCC_GPIOA_CLK_ENABLE();
+    // GPIO_Initure.Pin=GPIO_PIN_9|GPIO_PIN_10;
+	// GPIO_Initure.Mode=GPIO_MODE_AF_PP;      //复用模式
+	// GPIO_Initure.Pull=GPIO_PULLUP;              //上拉
+	// GPIO_Initure.Speed=GPIO_SPEED_FREQ_HIGH;    //高速
+    // GPIO_Initure.Alternate=GPIO_AF7_USART1;
+	// HAL_GPIO_Init(GPIOA,&GPIO_Initure);
 
    __HAL_RCC_USART1_CLK_ENABLE();
 	UART1_Handle.Instance=USART1;					    //USART1
@@ -136,16 +136,36 @@ void CN_UART3_init(void){
 	GPIO_Initure.Speed=GPIO_SPEED_FREQ_HIGH;    //高速
     GPIO_Initure.Alternate=GPIO_AF7_USART3;
 	HAL_GPIO_Init(GPIOB,&GPIO_Initure);
+    
+    // 普通串口
+    // __HAL_RCC_USART3_CLK_ENABLE();
+	// UART3_Handle.Instance=USART3;					    //USART1
+	// UART3_Handle.Init.BaudRate=115200;				    //波特率
+	// UART3_Handle.Init.WordLength=UART_WORDLENGTH_8B;   //字长为8位数据格式
+	// UART3_Handle.Init.StopBits=UART_STOPBITS_1;	    //一个停止位
+	// UART3_Handle.Init.Parity=UART_PARITY_NONE;		    //无奇偶校验位
+	// UART3_Handle.Init.HwFlowCtl=UART_HWCONTROL_NONE;   //无硬件流控
+	// UART3_Handle.Init.Mode=UART_MODE_TX_RX;		    //收发模式
+    // UART3_Handle.Init.FIFOMode=UART_FIFOMODE_DISABLE;
 
+    // sbus协议
     __HAL_RCC_USART3_CLK_ENABLE();
-	UART3_Handle.Instance=USART3;					    //USART1
-	UART3_Handle.Init.BaudRate=115200;				    //波特率
-	UART3_Handle.Init.WordLength=UART_WORDLENGTH_8B;   //字长为8位数据格式
-	UART3_Handle.Init.StopBits=UART_STOPBITS_1;	    //一个停止位
-	UART3_Handle.Init.Parity=UART_PARITY_NONE;		    //无奇偶校验位
-	UART3_Handle.Init.HwFlowCtl=UART_HWCONTROL_NONE;   //无硬件流控
-	UART3_Handle.Init.Mode=UART_MODE_TX_RX;		    //收发模式
+    UART3_Handle.Instance=USART3;					    
+    UART3_Handle.Init.BaudRate=SBUS_UART_BAUDRATE;	// 100000 
+    
+    // 字长9位、2个停止位、偶校验
+    UART3_Handle.Init.WordLength=UART_WORDLENGTH_9B;   
+    UART3_Handle.Init.StopBits=UART_STOPBITS_2;	    
+    UART3_Handle.Init.Parity=UART_PARITY_EVEN;		    
+    
+    UART3_Handle.Init.HwFlowCtl=UART_HWCONTROL_NONE;   
+    UART3_Handle.Init.Mode=UART_MODE_TX_RX;		    
     UART3_Handle.Init.FIFOMode=UART_FIFOMODE_DISABLE;
+
+    // // 开启硬件RX引脚电平反相
+    // // SBUS协议是反相逻辑，不需要外接反相器，直接用H7内部硬件反相即可
+    // UART3_Handle.AdvancedInit.AdvFeatureInit = UART_ADVFEATURE_RXINVERT_INIT;
+    // UART3_Handle.AdvancedInit.RxPinLevelInvert = UART_ADVFEATURE_RXINV_ENABLE;
 
     __HAL_UART_CLEAR_IT(&UART3_Handle,UART_IT_TC);
     HAL_UART_Init(&UART3_Handle);
@@ -589,7 +609,7 @@ void UART7_IRQHandler(void){HAL_UART_IRQHandler(&UART7_Handle);}
 void UART8_IRQHandler(void){HAL_UART_IRQHandler(&UART8_Handle);}
 
 void CN_UART1_RX_CALLBACK(uint8_t dat){}
-// void CN_UART2_RX_CALLBACK(uint8_t dat){}
+//void CN_UART2_RX_CALLBACK(uint8_t dat){}
 // void CN_UART3_RX_CALLBACK(uint8_t dat){}
 void CN_UART4_RX_CALLBACK(uint8_t dat){}
 void CN_UART5_RX_CALLBACK(uint8_t dat){}
@@ -691,6 +711,19 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart){
     if(huart->Instance==UART8){
         CN_UART8_RX_CALLBACK(UART_8_RX_dat);
         HAL_UART_Receive_IT(&UART8_Handle,&UART_8_RX_dat,1);
+    }
+}
+
+void HAL_UART_ErrorCallback(UART_HandleTypeDef *huart)
+{
+    if(huart->Instance == USART3)
+    {
+        // 1. 清除溢出和帧错误标志
+        __HAL_UART_CLEAR_OREFLAG(huart);
+        __HAL_UART_CLEAR_FEFLAG(huart);
+        
+        // 2. 强制重新开启单字节接收中断
+        HAL_UART_Receive_IT(&UART3_Handle, &UART_3_RX_dat, 1);
     }
 }
 /******************************************************************数据链路层*********************************************************/

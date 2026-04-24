@@ -67,6 +67,10 @@ void CN_TIM2345_ENC_init(void){
     TIM_ENC_Handle[1].Instance=TIM5;
     TIM_ENC_Handle[2].Instance=TIM3;
     TIM_ENC_Handle[3].Instance=TIM2;
+    //  TIM_ENC_Handle[0].Instance=TIM2;
+    // TIM_ENC_Handle[1].Instance=TIM3;
+    // TIM_ENC_Handle[2].Instance=TIM4;
+    // TIM_ENC_Handle[3].Instance=TIM5;
 
 
     /****************编码器初始化部分***************/
@@ -84,6 +88,7 @@ void CN_TIM2345_ENC_init(void){
 }
 
 void CN_read_ENC_INC(void){
+    //printf("%d\n",(uint32_t)__HAL_TIM_GET_COUNTER(&TIM_ENC_Handle[1]));
     for(int i=0;i<4;i++){
        ENC_data[i]=(uint16_t)__HAL_TIM_GET_COUNTER(&TIM_ENC_Handle[i])-0xFFFF/2;
        __HAL_TIM_SET_COUNTER(&TIM_ENC_Handle[i],0xFFFF/2);
@@ -93,8 +98,7 @@ void CN_read_ENC_INC(void){
     ENC_data[1]=-ENC_data[1];
     ENC_data[2]=-ENC_data[2];
     ENC_data[3]=-ENC_data[3];
-    
 
-    // printf("%d\n",ENC_data[2]);
+    // // printf("%d\n",ENC_data[2]);
     // printf("%d,%d,%d,%d\n",ENC_data[0],ENC_data[1],ENC_data[2],ENC_data[3]);
 }

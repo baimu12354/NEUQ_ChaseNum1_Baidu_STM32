@@ -1,5 +1,6 @@
 #include "stm32h7xx_hal.h"
 
+#include "ChaseNum1_Typedef.h"
 #include "ChaseNum1_calcustom.h"
 #include "ChaseNum1_COM.h"
 #include "ChaseNum1_ENC.h"
@@ -14,12 +15,15 @@
 #include "ChaseNum1_FIFO.h"
 #include "ChaseNum1_BusServo.h"
 
+
 #include "ChaseNum1_Menu.h"
+#include "ChaseNum1_Mission.h"
 
 #include "3rd_Party_SDK/wit_c_sdk/wit_c_sdk.h"
 #include "3rd_Party_SDK/wit_c_sdk/REG.h"
 #include "ChaseNum1_TFT180/lcd_init.h"
 #include "ChaseNum1_TFT180/lcd.h"
+#include "ChaseNum1_RC.h"
 
 extern SYS_STATUS_STRUCT SYS_STATUS;
 

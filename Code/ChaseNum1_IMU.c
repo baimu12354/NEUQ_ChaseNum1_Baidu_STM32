@@ -106,14 +106,14 @@ void CN_3rd_Party_JY61_IMU_update_CALLBACK(uint32_t uiReg, uint32_t uiRegNum){
                 s_cDataUpdate |= GYRO_UPDATE;
                 break;
             case GZ:
-                IMU_data.G_Z=sReg[GZ]*0.001065264436;
+                IMU_data.G_Z=sReg[GZ]*0.001065264436;   // rad/s
                 s_cDataUpdate |= GYRO_UPDATE;
                 break;      
                 
             case Yaw:
                 s_cDataUpdate |= READ_UPDATE;   
-                // printf("%f\n",sReg[Yaw]*180.0f/32760);
-                YAW_now=sReg[Yaw]*180.0f/32760;
+                //printf("%f\n",sReg[Yaw]*180.0f/32760);
+                YAW_now=-sReg[Yaw]*180.0f/32760;
             default:
 				s_cDataUpdate |= READ_UPDATE;
 			    break;
@@ -121,7 +121,7 @@ void CN_3rd_Party_JY61_IMU_update_CALLBACK(uint32_t uiReg, uint32_t uiRegNum){
 		uiReg++;
     }
 
-    //printf("%f\n",IMU_data.G_X);
+   // printf("%.3f\n",YAW_now);
 }
 /*************************************调用wit-JY61接口***********************************/
 
