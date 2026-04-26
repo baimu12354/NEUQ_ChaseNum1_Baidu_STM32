@@ -29,9 +29,9 @@ PID_ctrler BL_pos_PID_ctrler={0};
 PID_ctrler BR_pos_PID_ctrler={0};
 
 
-#define MOTOR_VEL_CL_PID_KP (300)
+#define MOTOR_VEL_CL_PID_KP (100)
 #define MOTOR_VEL_CL_PID_KI (0)
-#define MOTOR_VEL_CL_PID_KD (200)
+#define MOTOR_VEL_CL_PID_KD (100)
 #define MOTOR_VEL_CL_PID_IMAX (0)
 #define MOTOR_VEL_CL_PID_OUTMAX (800)
 
@@ -348,6 +348,10 @@ void CN_Motor_vel_CL_init(void){
     init_PID_ctrler(&FR_vel_PID_ctrler,MOTOR_VEL_CL_PID_KP,MOTOR_VEL_CL_PID_KI,MOTOR_VEL_CL_PID_KD,MOTOR_VEL_CL_PID_IMAX,MOTOR_VEL_CL_PID_OUTMAX);
     init_PID_ctrler(&BL_vel_PID_ctrler,MOTOR_VEL_CL_PID_KP,MOTOR_VEL_CL_PID_KI,MOTOR_VEL_CL_PID_KD,MOTOR_VEL_CL_PID_IMAX,MOTOR_VEL_CL_PID_OUTMAX);
     init_PID_ctrler(&BR_vel_PID_ctrler,MOTOR_VEL_CL_PID_KP,MOTOR_VEL_CL_PID_KI,MOTOR_VEL_CL_PID_KD,MOTOR_VEL_CL_PID_IMAX,MOTOR_VEL_CL_PID_OUTMAX);
+    ENC_data[0] = 0;
+    ENC_data[1] = 0;
+    ENC_data[2] = 0;
+    ENC_data[3] = 0;
 }
 
 // 设置目标转速
@@ -357,10 +361,10 @@ void CN_Motor_vel_CL_set_aim(Motor_vel_struct aim){
 
 // 电机转速环输出更新
 void CN_Motor_vel_CL_CALLBACK(uint32_t us_time){
-    Vel_now.M_FL_Vel=ENC_data[0];
-    Vel_now.M_FR_Vel=ENC_data[1];
-    Vel_now.M_BL_Vel=ENC_data[2];
-    Vel_now.M_BR_Vel=ENC_data[3];
+    Vel_now.M_FL_Vel=(float)ENC_data[0];
+    Vel_now.M_FR_Vel=(float)ENC_data[1];
+    Vel_now.M_BL_Vel=(float)ENC_data[2];
+    Vel_now.M_BR_Vel=(float)ENC_data[3];
 
     // 里程数更新（相对于上位机之前的设定值）
     milemeter+=(Vel_now.M_FL_Vel+

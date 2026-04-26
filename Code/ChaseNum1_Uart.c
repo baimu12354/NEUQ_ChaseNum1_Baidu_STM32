@@ -10,7 +10,7 @@
     uart1 debug调试
     uart2 陀螺仪通信
     uart3 上位机通信
-    uart8 舵机通信
+    uart7 舵机通信
 */
 
 #define CN_UART_TEMP_SIZE   (256)
@@ -608,7 +608,9 @@ void USART6_IRQHandler(void){HAL_UART_IRQHandler(&UART6_Handle);}
 void UART7_IRQHandler(void){HAL_UART_IRQHandler(&UART7_Handle);}
 void UART8_IRQHandler(void){HAL_UART_IRQHandler(&UART8_Handle);}
 
-void CN_UART1_RX_CALLBACK(uint8_t dat){}
+void CN_UART1_RX_CALLBACK(uint8_t dat){
+    ARM_RX_Callback(dat);
+}
 //void CN_UART2_RX_CALLBACK(uint8_t dat){}
 // void CN_UART3_RX_CALLBACK(uint8_t dat){}
 void CN_UART4_RX_CALLBACK(uint8_t dat){}

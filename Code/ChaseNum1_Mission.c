@@ -10,7 +10,7 @@
 void RC_control(void){
      
     uint16_t  ch1_value = (uint16_t)uart_receiver.channel[0];
-	uint16_t  ch2_value = (uint16_t)uart_receiver.channel[1];	
+	 uint16_t  ch2_value = (uint16_t)uart_receiver.channel[1];	
     uint16_t  ch4_value = (uint16_t)uart_receiver.channel[3];
 
     float velx = 0;
@@ -38,7 +38,7 @@ void RC_control(void){
                        .Car_X_vel = velx,      // 车身的横向速度
                        .Car_Y_vel = vely,      // 车身的纵向速度
                        .Car_angvel = turn      // 车身的角速度
-                }; 
+               };
 		            
     if (ch4_value == RC_BREAKING){
        CN_set_movement(TMovement,Movement_Breaking); 

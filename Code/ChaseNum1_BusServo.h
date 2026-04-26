@@ -145,8 +145,7 @@ typedef struct {
     uint16_t power;
 } Sync_Adv_Multi_Speed_t;
 
-/* ---------------- 新增：同步指令高级封装函数声明 ---------------- */
-// 你只需传入结构体数组和舵机数量，底层自动拼包
+/* ---------------- 同步指令高级封装函数声明 ---------------- */
 void Servo_Sync_Simple_Single_Turn(Sync_Simple_Single_t *targets, uint8_t count);
 void Servo_Sync_Adv_Single_Turn_Time(Sync_Adv_Single_Time_t *targets, uint8_t count);
 void Servo_Sync_Adv_Single_Turn_Speed(Sync_Adv_Single_Speed_t *targets, uint8_t count);

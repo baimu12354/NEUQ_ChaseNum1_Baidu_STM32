@@ -33,9 +33,9 @@ int main(void){
 	 Main_COM_init();	      // 上位机通信串口
      printf("Debug Init\n");
 	 CN_delay_ms(10);
-	 
-	 CN_move_init();                 // 底盘运动初始化
-	 printf("Move Init\n");
+
+	 CN_TIM2345_ENC_init();		     // 编码器
+	 printf("Encoder Init\n");
 	 CN_delay_ms(10);
 
 	 CN_Motor_init();                // 电机初始化
@@ -43,40 +43,47 @@ int main(void){
 	 printf("Motor Init\n");
 	 CN_delay_ms(10);
 
-	 CN_3rd_Party_JY61_IMU_init();	 // 初始化陀螺仪
-	 printf("Imu Init\n");
+	 CN_move_init();                 // 底盘运动初始化
+	 printf("Move Init\n");
 	 CN_delay_ms(10);
 
-     CN_TIM2345_ENC_init();		     // 编码器
-	 printf("Encoder Init\n");
+	 CN_3rd_Party_JY61_IMU_init();	 // 初始化陀螺仪
+	 printf("Imu Init\n");
 	 CN_delay_ms(10);
 
 	 uart_receiver_init();
 	 printf("RC Init\n");
 	 CN_delay_ms(10);
 
+	// Duty_now.M_FL_Duty = 1000;
+    // Duty_now.M_FR_Duty = 1000;
+    // Duty_now.M_BL_Duty = 1000;
+    // Duty_now.M_BR_Duty = 1000;
+    // CN_set_Motor_Duty();
+
 	 CN_PIT_1_init_ms(1,1);          // PIT1初始化 服务于底盘运动控制和运动完成检测（1ms）
 	 CN_PIT_2_init_ms(1,2);          // PIT2初始化 服务于机械臂解算等外设
 
-     Car_Movement_struct TMovement = {
-                       .Car_X_movement = 0,
-                       .Car_Y_movement = 0,
-                       .Car_angle = 90, 
+    //  Car_Movement_struct TMovement = {
+    //                    .Car_X_movement = 0,
+    //                    .Car_Y_movement = 0,
+    //                    .Car_angle = 0,
 
-                       .Car_X_vel = 0,      // 车身的横向速度
-                       .Car_Y_vel = 0,      // 车身的纵向速度
-                       .Car_angvel = 10     // 车身的角速度
-                }; 
+    //                    .Car_X_vel = 0,      // 车身的横向速度
+    //                    .Car_Y_vel = 0,      // 车身的纵向速度
+    //                    .Car_angvel = 60     // 车身的角速度(rad/s)
+    //             }; 
 
-     CN_set_movement(TMovement,Movement_Rotation);
+    // CN_set_movement(TMovement,Movement_Running);
 
 
 	while(1){
 
 		RC_control();
 		//printf("%.5f,%.5f\n",Car_anv_PID_ctrler.err,Car_yaw_PID_ctrler.err);
-		printf("%.2f,%.2f,%.2f,%.2f\n",Duty_now.M_FL_Duty,Duty_now.M_FR_Duty,Duty_now.M_BL_Duty,Duty_now.M_BR_Duty);
-	    // printf("%d,%d,%d,%d,%d,%d\n",
+		//printf("%.2f,%.2f,%.2f,%.2f\n",Duty_now.M_FL_Duty,Duty_now.M_FR_Duty,Duty_now.M_BL_Duty,Duty_now.M_BR_Duty);
+	    printf("%.2f,%.2f,%.2f,%.2f,%.2f\n",distance_to_go,target_pose.x,target_pose.y,cur_x,cur_y);
+		// printf("%d,%d,%d,%d,%d,%d\n",
 		// 	(uint16_t)uart_receiver.channel[0],
 		// 	(uint16_t)uart_receiver.channel[1],
 		// 	(uint16_t)uart_receiver.channel[2],
@@ -98,7 +105,7 @@ void CN_PIT2_CALLBACK(void){
     if(ms_counter > 1000000) ms_counter = 0;    //防止溢出
 	
 	// 每5ms读取一次编码器增量
-	if(ms_counter%5==0){
+	if(ms_counter%1==0){
 		CN_read_ENC_INC();
 	}
 }

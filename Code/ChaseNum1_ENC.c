@@ -84,6 +84,7 @@ void CN_TIM2345_ENC_init(void){
     for(int i=0;i<4;i++){
         HAL_TIM_Encoder_Init(&TIM_ENC_Handle[i], &TIM_ENC_init);
         HAL_TIM_Encoder_Start(&TIM_ENC_Handle[i],TIM_CHANNEL_ALL);
+        __HAL_TIM_SET_COUNTER(&TIM_ENC_Handle[i], 0xFFFF/2);
     }
 }
 

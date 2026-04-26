@@ -6,6 +6,11 @@
 
 #define M_TO_ENC_FACTOR (1.0f)
 
+typedef struct{
+    float x;
+    float y;
+}Pos_struct;
+
 extern PID_ctrler Car_anv_PID_ctrler;
 extern PID_ctrler Car_yaw_PID_ctrler;
 extern PID_ctrler Car_yaw_moving_PID_ctrler;
@@ -24,6 +29,10 @@ extern float target_VelY;   // 目标纵向速度
 
 // 用于定位
 extern float distance_to_go;
+extern Pos_struct target_pose;
+extern Pos_struct start_pose;
+extern float cur_x;
+extern float cur_y;
 
 void CN_move_init(void);//运动模块初始化
 void CN_set_movement(Car_Movement_struct movement,Movement_type_ENUM movement_type);//外部调用函数的接口
