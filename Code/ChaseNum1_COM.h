@@ -3,6 +3,8 @@
 
 #include "stm32h7xx_hal.h"
 #include "ChaseNum1_Typedef.h"
+#include "stdint.h"
+#include "stdbool.h"
 
 /*
     通信错误处理：收到上位机的指令，必须有返回，只有三种情况：确认命令已下发、上位机指令错误或无法执行（设备正忙）、设备就位
@@ -81,6 +83,33 @@ void Main_COM_init(void);//通信初始化
 void Main_COM_Response_CALLBACK(void);//处理指令
 void CN_send_Response(Main_CMD_ENUM CMD,uint8_t* response);//发送应答
 void Main_COM_send_pack(Main_CMD_ENUM CMD,uint8_t *load,uint8_t load_len);//发送数据包
+
+typedef struct {
+    // 角度环 (位置环)
+    float target_angle;
+    float Kp_angle;
+    float Ki_angle;
+    float Kd_angle;
+    
+    // 速度环
+    float target_vel;
+    float Kp_vel;
+    float Ki_vel;
+    float Kd_vel;
+} Motor_Tuning_Params_t;
+
+// 用于字节转浮点数的共用体
+typedef union {
+    float f_data;
+    uint8_t bytes[4];
+} VOFA_Float_Union;
+
+
+extern volatile Motor_Tuning_Params_t motor_tune;
+extern volatile bool param_updated_flag;  
+extern uint8_t motor_tun_flag;
+
+void VOFA_Single_Byte_Process(uint8_t rx_byte);
 
 /*
     CMD_SETM指令载荷格式：

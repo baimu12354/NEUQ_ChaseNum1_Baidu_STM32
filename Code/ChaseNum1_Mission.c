@@ -3,11 +3,11 @@
 #define CHANNEL1 1000
 #define CHANNEL2 1000
 
-#define RC_RUNNING 192
-#define RC_MOVING 992
-#define RC_BREAKING 1792
+
 
 void RC_control(void){
+
+    //static Car_Movement_struct TMovement = {0};
      
     uint16_t  ch1_value = (uint16_t)uart_receiver.channel[0];
 	 uint16_t  ch2_value = (uint16_t)uart_receiver.channel[1];	
@@ -21,13 +21,13 @@ void RC_control(void){
     if  (ch4_value == RC_RUNNING){
        velx = 0;
        vely = (float)(ch2_value - CHANNEL1) / 20;
-       turn = (float)(ch1_value - CHANNEL1) / 10;
+       turn = (float)(ch1_value - CHANNEL1) / 5;
     }
     // 平移控制
     else if (ch4_value == RC_MOVING){
        turn = 0;
        vely = (float)(ch2_value - CHANNEL1) / 20;
-       velx = (float)(ch1_value - CHANNEL1) / 20;
+       velx = (float)(ch1_value - CHANNEL1) / 50;
     }
     
     Car_Movement_struct TMovement = {

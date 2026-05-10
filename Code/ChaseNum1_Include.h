@@ -15,6 +15,7 @@
 #include "ChaseNum1_FIFO.h"
 #include "ChaseNum1_BusServo.h"
 #include "ChaseNum1_MecArm.h"
+#include "ChaseNum1_IMUcan.h"
 
 
 #include "ChaseNum1_Menu.h"

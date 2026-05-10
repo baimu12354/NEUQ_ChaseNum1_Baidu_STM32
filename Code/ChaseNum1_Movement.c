@@ -41,13 +41,18 @@ void CN_set_movement(Car_Movement_struct movement,Movement_type_ENUM movement_ty
             YAW_gain = 0;  // 累计角度
             YAW_pre = YAW_inital;   // 上一次的角度
             CN_CAR_vel_CL_set_aim(0,0);
-            CN_CAR_anv_CL_set_aim(movement.Car_angvel);
+            if (target_yaw >= 0){
+               CN_CAR_anv_CL_set_aim(fabs(movement.Car_angvel));
+            }
+            else {
+               CN_CAR_anv_CL_set_aim(-fabs(movement.Car_angvel)); 
+            }
+            
             break;
         }
         case Movement_Running:{
-            
             CN_CAR_vel_CL_set_aim(movement.Car_X_vel,movement.Car_Y_vel);
-            //CN_CAR_anv_CL_set_aim(movement.Car_angvel);
+            // CN_CAR_anv_CL_set_aim(movement.Car_angvel);
             CN_CAR_rotation_set_aim(movement.Car_angvel);
             break;
         }
@@ -88,8 +93,8 @@ void CN_Movement_ctrl_CALLBACK(uint32_t ms){
             break;
         }
         case Movement_Running:{
-            if (time % 50 == 0){
-                YAW_aim = CN_yaw_add(YAW_aim,YAW_acc * 0.05);
+            if (time % 10 == 0){
+                YAW_aim = CN_yaw_add(YAW_aim,YAW_acc * 0.01);
             }
             if (time % 10 == 0){
                CN_CAR_yaw_CL_CALLBACK(10000); 
@@ -113,7 +118,7 @@ void CN_Movement_ctrl_CALLBACK(uint32_t ms){
             YAW_gain += YawDelta;
 
             // 旋转至目标值 切换回运行状态
-            if (YAW_gain >= target_yaw) {
+            if (fabs(YAW_gain) >= fabs(target_yaw)) {
                 Car_Movement_struct TempMovement ={
                        .Car_X_movement = 0,
                        .Car_Y_movement = 0,
@@ -126,15 +131,15 @@ void CN_Movement_ctrl_CALLBACK(uint32_t ms){
                 CN_set_movement(TempMovement,Movement_Running);
                 break;
             }
-            if (fabs(target_yaw - YAW_gain) < 100){
-                CN_CAR_anv_CL_set_aim(1);
+            if (fabs(target_yaw - YAW_gain) < 20){
+                CN_CAR_anv_CL_set_aim(0.3);
             }
 
             if (time % 5 == 0){
-               CN_CAR_anv_CL_CALLBACK(5000);
+                CN_CAR_anv_CL_CALLBACK(5000);
             }
             if (time % 1 == 0){
-              CN_CAR_vel_CL_CALLBACK(1000);
+                CN_CAR_vel_CL_CALLBACK(1000);
             }
             YAW_pre = YAW_now;
             YAW_aim =  YAW_now;
@@ -165,7 +170,7 @@ void CN_Movement_ctrl_CALLBACK(uint32_t ms){
 
 
 /****************************车身角度环***************************/
-#define CAR_YAW_CL_PID_KP (1.0f)
+#define CAR_YAW_CL_PID_KP (0.5f)
 #define CAR_YAW_CL_PID_KI (0)
 #define CAR_YAW_CL_PID_KD (0)
 #define CAR_YAW_CL_PID_IMAX (0)
@@ -204,7 +209,7 @@ void CN_CAR_yaw_CL_CALLBACK(uint32_t us_time){
     // 更新角度环输出
     PID_ctrler_update_with_time(&Car_yaw_PID_ctrler,YAW_err,us_time);
     // 设置目标角速度
-    CN_CAR_anv_CL_set_aim(Car_yaw_PID_ctrler.output);
+    CN_CAR_anv_CL_set_aim(YAW_acc * 0.1+Car_yaw_PID_ctrler.output);
 }
 
 // 获取两个绝对方位角之间的相对方位角
@@ -231,9 +236,12 @@ void CN_CAR_yaw_CL_set_aim(float yaw){
 
 
 /****************************车身角速度环***************************/
-#define CAR_ANV_CL_PID_KP     (0.2f)
-#define CAR_ANV_CL_PID_KI     (0.0f)
-#define CAR_ANV_CL_PID_KD     (1.0f)
+
+// 角速度设置范围 大致为 -3.0 ~ 3.0
+
+#define CAR_ANV_CL_PID_KP     (0.5f)
+#define CAR_ANV_CL_PID_KI     (0.00f)
+#define CAR_ANV_CL_PID_KD     (0.0f)
 #define CAR_ANV_CL_PID_IMAX    (10.0f)
 #define CAR_ANV_CL_PID_OUTMAX   (50.0f)
 

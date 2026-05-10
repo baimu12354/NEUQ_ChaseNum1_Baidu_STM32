@@ -96,10 +96,10 @@ void CN_read_ENC_INC(void){
     }
 
     ENC_data[0]=ENC_data[0];
-    ENC_data[1]=-ENC_data[1];
-    ENC_data[2]=-ENC_data[2];
+    ENC_data[1]=ENC_data[1];
+    ENC_data[2]=ENC_data[2];
     ENC_data[3]=-ENC_data[3];
 
     // // printf("%d\n",ENC_data[2]);
-    // printf("%d,%d,%d,%d\n",ENC_data[0],ENC_data[1],ENC_data[2],ENC_data[3]);
+    // printf("%d,%d,%d,%d\n",ENC_data[0],ENC_data[3],ENC_data[1],ENC_data[2]);
 }

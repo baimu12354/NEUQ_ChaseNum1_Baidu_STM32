@@ -51,4 +51,9 @@ extern PID_ctrler FR_pos_PID_ctrler;
 extern PID_ctrler BL_pos_PID_ctrler;
 extern PID_ctrler BR_pos_PID_ctrler;
 
+extern PID_ctrler FL_vel_PID_ctrler;
+extern PID_ctrler FR_vel_PID_ctrler;
+extern PID_ctrler BL_vel_PID_ctrler;
+extern PID_ctrler BR_vel_PID_ctrler;
+
 #endif // !_CHASENUM1_MOTOR_H_

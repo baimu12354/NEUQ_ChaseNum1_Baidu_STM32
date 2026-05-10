@@ -29,9 +29,9 @@ PID_ctrler BL_pos_PID_ctrler={0};
 PID_ctrler BR_pos_PID_ctrler={0};
 
 
-#define MOTOR_VEL_CL_PID_KP (100)
+#define MOTOR_VEL_CL_PID_KP (50)
 #define MOTOR_VEL_CL_PID_KI (0)
-#define MOTOR_VEL_CL_PID_KD (100)
+#define MOTOR_VEL_CL_PID_KD (0)
 #define MOTOR_VEL_CL_PID_IMAX (0)
 #define MOTOR_VEL_CL_PID_OUTMAX (800)
 
@@ -249,11 +249,55 @@ void CN_TIM_Motor_PWM_duty_set(uint32_t CH1_8[8]){
     // __HAL_TIM_SET_COMPARE(&TIM1_Motor_Handle, TIM_CHANNEL_1, 3000);
 }
 
+// 摩擦力死区补偿值：给多大的PWM值，轮胎刚好悬空微转/克服静摩擦 (需要实际上机测试)
+#define MOTOR_DEADBAND_PWM 800  
+
+// 速度噪声死区容忍度：低于这个速度的编码器波动视为静止噪声
+#define VEL_NOISE_MARGIN 0.5f
+
 void CN_set_Motor_Duty(void){
     int32_t FL_Duty=(int32_t)Duty_now.M_FL_Duty;
     int32_t FR_Duty=(int32_t)Duty_now.M_FR_Duty;
     int32_t BL_Duty=(int32_t)Duty_now.M_BL_Duty;
     int32_t BR_Duty=(int32_t)Duty_now.M_BR_Duty;
+
+    // ==========================================
+    // 1. 静止状态防微震处理 (解决IMU漂移导致的异响)
+    // ==========================================
+    // 逻辑：如果上位机/运动学解算下发的目标速度为0，且当前实际速度极小
+    // 则强行掐断输出，并清零PID积累，防止传感器噪声驱动电机。
+    if (Vel_aim.M_FL_Vel == 0 && fabs(Vel_now.M_FL_Vel) < VEL_NOISE_MARGIN) {
+        FL_Duty = 0;
+        Duty_now.M_FL_Duty = 0; 
+    }
+    if (Vel_aim.M_FR_Vel == 0 && fabs(Vel_now.M_FR_Vel) < VEL_NOISE_MARGIN) {
+        FR_Duty = 0;
+        Duty_now.M_FR_Duty = 0;
+    }
+    if (Vel_aim.M_BL_Vel == 0 && fabs(Vel_now.M_BL_Vel) < VEL_NOISE_MARGIN) {
+        BL_Duty = 0;
+        Duty_now.M_BL_Duty = 0;
+    }
+    if (Vel_aim.M_BR_Vel == 0 && fabs(Vel_now.M_BR_Vel) < VEL_NOISE_MARGIN) {
+        BR_Duty = 0;
+        Duty_now.M_BR_Duty = 0;
+    }
+
+    // ==========================================
+    // 2. 死区（静摩擦力）前馈补偿
+    // ==========================================
+    // 逻辑：如果经过上述判断后，仍需要输出力矩，则直接跨过物理死区
+    if (FL_Duty > 0) FL_Duty += MOTOR_DEADBAND_PWM;
+    else if (FL_Duty < 0) FL_Duty -= MOTOR_DEADBAND_PWM;
+
+    if (FR_Duty > 0) FR_Duty += MOTOR_DEADBAND_PWM;
+    else if (FR_Duty < 0) FR_Duty -= MOTOR_DEADBAND_PWM;
+
+    if (BL_Duty > 0) BL_Duty += MOTOR_DEADBAND_PWM;
+    else if (BL_Duty < 0) BL_Duty -= MOTOR_DEADBAND_PWM;
+
+    if (BR_Duty > 0) BR_Duty += MOTOR_DEADBAND_PWM;
+    else if (BR_Duty < 0) BR_Duty -= MOTOR_DEADBAND_PWM;
 
     FL_Duty=FL_Duty>CN_PWM_MAX?CN_PWM_MAX:FL_Duty;
     FL_Duty=FL_Duty<-CN_PWM_MAX?-CN_PWM_MAX:FL_Duty;
@@ -274,30 +318,30 @@ void CN_set_Motor_Duty(void){
         CH1_8[1]=-FL_Duty;
     }
 
-    if(FR_Duty>=0){
-        CH1_8[2]=0;
-        CH1_8[3]=FR_Duty;
-    }
-    else{
-        CH1_8[2]=-FR_Duty;
+    if(BL_Duty>=0){        // FR_Duty
+        CH1_8[2]=BL_Duty;
         CH1_8[3]=0;
     }
-
-    if(BL_Duty>=0){
-        CH1_8[4]=BL_Duty;
-        CH1_8[5]=0;
-    }
     else{
-        CH1_8[4]=0;
-        CH1_8[5]=-BL_Duty;
+        CH1_8[2]=0;
+        CH1_8[3]=-BL_Duty;
     }
 
     if(BR_Duty>=0){
-        CH1_8[6]=0;
-        CH1_8[7]=BR_Duty;
+        CH1_8[4]=0;
+        CH1_8[5]=BR_Duty;
     }
     else{
-        CH1_8[6]=-BR_Duty;
+        CH1_8[4]=-BR_Duty;
+        CH1_8[5]=0;
+    }
+
+    if(FR_Duty>=0){
+        CH1_8[6]=0;
+        CH1_8[7]=FR_Duty;
+    }
+    else{
+        CH1_8[6]=-FR_Duty;
         CH1_8[7]=0;
     }
     CN_TIM_Motor_PWM_duty_set(CH1_8);
@@ -362,9 +406,9 @@ void CN_Motor_vel_CL_set_aim(Motor_vel_struct aim){
 // 电机转速环输出更新
 void CN_Motor_vel_CL_CALLBACK(uint32_t us_time){
     Vel_now.M_FL_Vel=(float)ENC_data[0];
-    Vel_now.M_FR_Vel=(float)ENC_data[1];
-    Vel_now.M_BL_Vel=(float)ENC_data[2];
-    Vel_now.M_BR_Vel=(float)ENC_data[3];
+    Vel_now.M_FR_Vel=(float)ENC_data[3];
+    Vel_now.M_BL_Vel=(float)ENC_data[1];
+    Vel_now.M_BR_Vel=(float)ENC_data[2];
 
     // 里程数更新（相对于上位机之前的设定值）
     milemeter+=(Vel_now.M_FL_Vel+

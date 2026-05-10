@@ -608,9 +608,9 @@ void USART6_IRQHandler(void){HAL_UART_IRQHandler(&UART6_Handle);}
 void UART7_IRQHandler(void){HAL_UART_IRQHandler(&UART7_Handle);}
 void UART8_IRQHandler(void){HAL_UART_IRQHandler(&UART8_Handle);}
 
-void CN_UART1_RX_CALLBACK(uint8_t dat){
-    ARM_RX_Callback(dat);
-}
+// void CN_UART1_RX_CALLBACK(uint8_t dat){
+//     ARM_RX_Callback(dat);
+// }
 //void CN_UART2_RX_CALLBACK(uint8_t dat){}
 // void CN_UART3_RX_CALLBACK(uint8_t dat){}
 void CN_UART4_RX_CALLBACK(uint8_t dat){}
@@ -684,6 +684,7 @@ void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart){
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart){
     if(huart->Instance==USART1){
         // CN_Debug_UART_RX_CALLBACK(UART_1_RX_dat);
+        CN_UART1_RX_CALLBACK(UART_1_RX_dat);
         HAL_UART_Receive_IT(&UART1_Handle,&UART_1_RX_dat,1);
     }
     if(huart->Instance==USART2){
