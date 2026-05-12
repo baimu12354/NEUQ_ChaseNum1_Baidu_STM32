@@ -74,19 +74,7 @@ uint8_t debug_count = 0;
 uint8_t stop_record = 0;
 
 // 串口接收机模块 串口中断回调函数
-void uart_receiver_callback(uint8_t dat)
-{
-
-    // if(stop_record == 0) 
-    // {
-    //     debug_sbus_buffer[debug_count] = dat;
-    //     debug_count++;
-        
-    //     if(debug_count >= 100) 
-    //     {
-    //         stop_record = 1; // 抓满100个字节，打上标记，停止记录
-    //     }
-    // }
+void uart_receiver_callback(uint8_t dat){
 
    static uint8_t length = 0;
 
@@ -105,13 +93,6 @@ void uart_receiver_callback(uint8_t dat)
     
     uart_receiver_data[length] = dat;
     length++;
-    
-    // if((REV_DATA_LEN == length) && (FRAME_STAR == uart_receiver_data[0]))
-    // {
-    //     //printf("%d\n",length);
-    //     uart_receiver_analysis(&uart_receiver, uart_receiver_data);
-    //     length = 0; 
-    // }
 
     // 帧校验与解析
     if((REV_DATA_LEN == length) && (FRAME_STAR == uart_receiver_data[0]) && (FRAME_END == uart_receiver_data[24]))
@@ -121,8 +102,8 @@ void uart_receiver_callback(uint8_t dat)
     }
 }
 
-// 串口3接收回调
-void CN_UART3_RX_CALLBACK(uint8_t dat){
-    uart_receiver_callback(dat);
-}
+// // 串口3接收回调
+// void CN_UART3_RX_CALLBACK(uint8_t dat){
+//     uart_receiver_callback(dat);
+// }
 //--------------------------------RC遥控器 sbus协议----------------------------------//

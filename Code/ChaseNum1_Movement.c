@@ -88,7 +88,7 @@ void CN_Movement_ctrl_CALLBACK(uint32_t ms){
     time = (time > 1000) ? 0 : time;
     switch (Whole_Movement_Type){
         case Movement_Breaking:{
-            //CN_Intr_Movement();
+            CN_Intr_Movement();
             YAW_aim =  YAW_now;
             break;
         }
@@ -142,7 +142,7 @@ void CN_Movement_ctrl_CALLBACK(uint32_t ms){
                 CN_CAR_vel_CL_CALLBACK(1000);
             }
             YAW_pre = YAW_now;
-            YAW_aim =  YAW_now;
+            YAW_aim = YAW_now;
             break;
         }
         case Movement_Translation:{
@@ -209,7 +209,7 @@ void CN_CAR_yaw_CL_CALLBACK(uint32_t us_time){
     // 更新角度环输出
     PID_ctrler_update_with_time(&Car_yaw_PID_ctrler,YAW_err,us_time);
     // 设置目标角速度
-    CN_CAR_anv_CL_set_aim(YAW_acc * 0.1+Car_yaw_PID_ctrler.output);
+    CN_CAR_anv_CL_set_aim(Car_yaw_PID_ctrler.output);
 }
 
 // 获取两个绝对方位角之间的相对方位角

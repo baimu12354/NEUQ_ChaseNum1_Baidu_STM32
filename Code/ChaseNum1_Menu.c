@@ -71,27 +71,27 @@ void Menu_press_event(void){
     switch(highlight_now){
         case 0:{
             printf("Start Server\n");
-            CN_send_Response(Main_CMD_STARTSERVER,NULL);
+            // CN_send_Response(Main_CMD_STARTSERVER,NULL);
             flag_server_started=0 ; //重置服务器启动标志
             // CN_Server_init();
             break;
         }
         case 1:{
             printf("Close Server\n");
-            CN_send_Response(Main_CMD_CLOSESERVER,NULL);
+            // CN_send_Response(Main_CMD_CLOSESERVER,NULL);
             // flag_server_started=0; //重置服务器启动标志
             // CN_Server_close();
             break;
         }
         case 2:{
             printf("Start Mission\n");
-            CN_send_Response(Main_CMD_STARTMISSION,NULL);
+            // CN_send_Response(Main_CMD_STARTMISSION,NULL);
             // CN_Mission_start();
             break;
         }
         case 3:{
             printf("Suspend Mission\n");
-            CN_send_Response(Main_CMD_SUSPENDMISSION,NULL);
+            // CN_send_Response(Main_CMD_SUSPENDMISSION,NULL);
             // CN_Mission_suspend();
             break;
         }

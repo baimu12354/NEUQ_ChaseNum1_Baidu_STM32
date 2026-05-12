@@ -135,6 +135,7 @@ void CN_UART3_init(void){
 	GPIO_Initure.Pull=GPIO_NOPULL;              //上拉
 	GPIO_Initure.Speed=GPIO_SPEED_FREQ_HIGH;    //高速
     GPIO_Initure.Alternate=GPIO_AF7_USART3;
+    GPIO_Initure.Pull=GPIO_PULLUP;
 	HAL_GPIO_Init(GPIOB,&GPIO_Initure);
     
     // 普通串口
@@ -166,6 +167,11 @@ void CN_UART3_init(void){
     // // SBUS协议是反相逻辑，不需要外接反相器，直接用H7内部硬件反相即可
     // UART3_Handle.AdvancedInit.AdvFeatureInit = UART_ADVFEATURE_RXINVERT_INIT;
     // UART3_Handle.AdvancedInit.RxPinLevelInvert = UART_ADVFEATURE_RXINV_ENABLE;
+
+    UART3_Handle.Init.BaudRate=115200;
+    UART3_Handle.Init.WordLength=UART_WORDLENGTH_8B;
+    UART3_Handle.Init.StopBits=UART_STOPBITS_1;
+    UART3_Handle.Init.Parity=UART_PARITY_NONE;
 
     __HAL_UART_CLEAR_IT(&UART3_Handle,UART_IT_TC);
     HAL_UART_Init(&UART3_Handle);

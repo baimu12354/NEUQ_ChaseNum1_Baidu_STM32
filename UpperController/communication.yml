@@ -1,0 +1,49 @@
+serial:
+  port: COM3
+  baudrate: 115200
+  bytesize: 8
+  parity: N
+  stopbits: 1
+  timeout_s: 0.05
+  write_timeout_s: 0.05
+
+protocol:
+  header: [0xAA, 0x55]
+  tail: [0x0D, 0x0A]
+  version: 0x01
+  max_payload_len: 64
+  endian: little
+  float_format: float32
+
+commands:
+  hello: 0x01
+  brake: 0x02
+  run: 0x03
+  get_status: 0x04
+  set_yaw: 0x05
+  set_feedback: 0x06
+
+responses:
+  ack: 0x81
+  error: 0x82
+  status: 0x83
+
+limits:
+  max_vx: 50.0
+  max_vy: 50.0
+  max_wz_deg_s: 200.0
+  command_timeout_ms: 500
+  default_feedback_interval_ms: 100
+  min_feedback_interval_ms: 20
+  max_feedback_interval_ms: 1000
+
+rc_mapping:
+  channel_center: 1000
+  running:
+    vx: 0.0
+    vy_scale: 20.0
+    wz_scale: 5.0
+  moving:
+    vx_scale: 50.0
+    vy_scale: 20.0
+    wz: 0.0

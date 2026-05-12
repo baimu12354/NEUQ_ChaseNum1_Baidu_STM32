@@ -20,7 +20,7 @@ void HAL_FDCAN_MspInit(FDCAN_HandleTypeDef* fdcanHandle)
         PeriphClkInitStruct.FdcanClockSelection = RCC_FDCANCLKSOURCE_PLL;
         if (HAL_RCCEx_PeriphCLKConfig(&PeriphClkInitStruct) != HAL_OK)
         {
-            Error_Handler();
+            // Error_Handler();
         }
 
         // 开启对应的外设总线时钟 
@@ -80,7 +80,7 @@ void IMU_CAN_Init(void)
     
     if (HAL_FDCAN_Init(&hfdcan1) != HAL_OK)
     {
-        Error_Handler(); // 初始化失败陷入死循环
+        // Error_Handler(); // 初始化失败陷入死循环
     }
 
     // 接收滤波器配置
