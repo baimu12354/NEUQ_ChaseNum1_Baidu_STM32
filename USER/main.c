@@ -29,7 +29,7 @@ int main(void){
 	delay_init(400);
 
 	CN_PIT_3_init_us(10,0);       // PIT3初始化 服务于系统延时（10us）
-	CN_UART1_init();          // debug调试串口
+	CN_UART1_init();              // debug调试串口
      printf("Debug Init\n");
 	 CN_delay_ms(10);
 
@@ -37,7 +37,7 @@ int main(void){
 	 printf("Encoder Init\n");
 	 CN_delay_ms(10);
 
-	 CN_Motor_init();                // 电机初始化
+	 CN_Motor_init();                  // 电机初始化
 	 CN_TIM_Motor_PWMOUT_ENA();        // 启用电机PWM输出
 	 printf("Motor Init\n");
 	 CN_delay_ms(10);
@@ -50,7 +50,7 @@ int main(void){
 	 printf("Imu Init\n");
 	 CN_delay_ms(10);
 
-	 //uart_receiver_init();
+	 // uart_receiver_init();
 	 Main_COM_init();
 	 printf("Main Init\n");
 	 CN_delay_ms(10);
@@ -84,13 +84,10 @@ int avg_change=0;
 
 // 运动控制中断 1ms
 void CN_PIT1_CALLBACK(void){
-
 	CN_Movement_ctrl_CALLBACK(1);
-
 }
 
-    
-   
+
 void CN_PIT2_CALLBACK(void){
   
 	ms_counter++; 

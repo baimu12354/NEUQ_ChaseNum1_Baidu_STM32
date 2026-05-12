@@ -138,40 +138,34 @@ void CN_UART3_init(void){
     GPIO_Initure.Pull=GPIO_PULLUP;
 	HAL_GPIO_Init(GPIOB,&GPIO_Initure);
     
-    // 普通串口
-    // __HAL_RCC_USART3_CLK_ENABLE();
-	// UART3_Handle.Instance=USART3;					    //USART1
-	// UART3_Handle.Init.BaudRate=115200;				    //波特率
-	// UART3_Handle.Init.WordLength=UART_WORDLENGTH_8B;   //字长为8位数据格式
-	// UART3_Handle.Init.StopBits=UART_STOPBITS_1;	    //一个停止位
-	// UART3_Handle.Init.Parity=UART_PARITY_NONE;		    //无奇偶校验位
-	// UART3_Handle.Init.HwFlowCtl=UART_HWCONTROL_NONE;   //无硬件流控
-	// UART3_Handle.Init.Mode=UART_MODE_TX_RX;		    //收发模式
-    // UART3_Handle.Init.FIFOMode=UART_FIFOMODE_DISABLE;
-
-    // sbus协议
     __HAL_RCC_USART3_CLK_ENABLE();
-    UART3_Handle.Instance=USART3;					    
-    UART3_Handle.Init.BaudRate=SBUS_UART_BAUDRATE;	// 100000 
-    
-    // 字长9位、2个停止位、偶校验
-    UART3_Handle.Init.WordLength=UART_WORDLENGTH_9B;   
-    UART3_Handle.Init.StopBits=UART_STOPBITS_2;	    
-    UART3_Handle.Init.Parity=UART_PARITY_EVEN;		    
-    
-    UART3_Handle.Init.HwFlowCtl=UART_HWCONTROL_NONE;   
-    UART3_Handle.Init.Mode=UART_MODE_TX_RX;		    
-    UART3_Handle.Init.FIFOMode=UART_FIFOMODE_DISABLE;
+	UART3_Handle.Instance=USART3;
 
-    // // 开启硬件RX引脚电平反相
-    // // SBUS协议是反相逻辑，不需要外接反相器，直接用H7内部硬件反相即可
+    // 普通 UART 协议：上位机通信使用 115200/8N1。
+	UART3_Handle.Init.BaudRate=115200;
+	UART3_Handle.Init.WordLength=UART_WORDLENGTH_8B;
+	UART3_Handle.Init.StopBits=UART_STOPBITS_1;
+	UART3_Handle.Init.Parity=UART_PARITY_NONE;
+	UART3_Handle.Init.HwFlowCtl=UART_HWCONTROL_NONE;
+	UART3_Handle.Init.Mode=UART_MODE_TX_RX;
+    UART3_Handle.Init.FIFOMode=UART_FIFOMODE_DISABLE;
+    UART3_Handle.AdvancedInit.AdvFeatureInit = UART_ADVFEATURE_RXINVERT_INIT;
+    UART3_Handle.AdvancedInit.RxPinLevelInvert = UART_ADVFEATURE_RXINV_DISABLE;
+
+    /*
+     * SBUS 协议备用配置：
+     * 如果下次要把 UART3 切回 SBUS，注释掉上面的普通 UART 配置，
+     * 再打开下面这一段。SBUS 常用 100000/9E2，并且接收端可能需要 RX 反相。
+     */
+    // UART3_Handle.Init.BaudRate=SBUS_UART_BAUDRATE; // 100000
+    // UART3_Handle.Init.WordLength=UART_WORDLENGTH_9B;
+    // UART3_Handle.Init.StopBits=UART_STOPBITS_2;
+    // UART3_Handle.Init.Parity=UART_PARITY_EVEN;
+    // UART3_Handle.Init.HwFlowCtl=UART_HWCONTROL_NONE;
+    // UART3_Handle.Init.Mode=UART_MODE_TX_RX;
+    // UART3_Handle.Init.FIFOMode=UART_FIFOMODE_DISABLE;
     // UART3_Handle.AdvancedInit.AdvFeatureInit = UART_ADVFEATURE_RXINVERT_INIT;
     // UART3_Handle.AdvancedInit.RxPinLevelInvert = UART_ADVFEATURE_RXINV_ENABLE;
-
-    UART3_Handle.Init.BaudRate=115200;
-    UART3_Handle.Init.WordLength=UART_WORDLENGTH_8B;
-    UART3_Handle.Init.StopBits=UART_STOPBITS_1;
-    UART3_Handle.Init.Parity=UART_PARITY_NONE;
 
     __HAL_UART_CLEAR_IT(&UART3_Handle,UART_IT_TC);
     HAL_UART_Init(&UART3_Handle);
@@ -525,10 +519,24 @@ uint8_t U6_TX_temp_g[CN_UART_TEMP_SIZE]={0};//必须要通过这个数组发送�
 uint8_t U7_TX_temp_g[CN_UART_TEMP_SIZE]={0};//必须要通过这个数组发送，否则调用HAL_UART_Transmit_IT时找不到原局部变量数组就会报错
 uint8_t U8_TX_temp_g[CN_UART_TEMP_SIZE]={0};//必须要通过这个数组发送，否则调用HAL_UART_Transmit_IT时找不到原局部变量数组就会报错
 
+static void CN_UART_start_tx_from_fifo(UART_HandleTypeDef *huart,CN_FIFO_struct *fifo,uint8_t *tx_buf){
+    uint16_t tx_len=CN_get_FIFO_occupied(fifo);
+
+    if(tx_len==0u){
+        return;
+    }
+    if(tx_len>CN_UART_TEMP_SIZE){
+        tx_len=CN_UART_TEMP_SIZE;
+    }
+    if(CN_FIFO_read(fifo,tx_buf,tx_len)!=0u){
+        HAL_UART_Transmit_IT(huart,tx_buf,tx_len);
+    }
+}
+
 // 串口写入缓冲区
 void CN_UART_write_fifo(CN_UART_ENUM Moudle,uint8_t *data,uint32_t len){
-    UART_HandleTypeDef *Moudle_use;
-    CN_FIFO_struct *FIFO_use;
+    UART_HandleTypeDef *Moudle_use=NULL;
+    CN_FIFO_struct *FIFO_use=NULL;
     uint8_t *TX_temp_g_use=NULL;
     switch(Moudle){
         case CN_UART_1:{
@@ -580,22 +588,19 @@ void CN_UART_write_fifo(CN_UART_ENUM Moudle,uint8_t *data,uint32_t len){
             break;
         }
     }
-    if(Moudle_use->gState==HAL_UART_STATE_READY){                   //如果串口空闲
-        uint32_t FIFO_occupied=CN_get_FIFO_occupied(FIFO_use);      //计算FIFO剩余字节数
-        if(FIFO_occupied>0){                                        //如果FIFO中还有数据
-            CN_FIFO_read(FIFO_use,TX_temp_g_use,FIFO_occupied);              //读出FIFO剩余数据
-            HAL_UART_Transmit_IT(Moudle_use,TX_temp_g_use,FIFO_occupied);    //发送剩余数据
-            CN_FIFO_write(FIFO_use,data,len);                       //写入当前数据到FIFO
-        }
-        else{                                                       //如果FIFO中没有数据了
-            // printf("send data\n");
-            memcpy(TX_temp_g_use,data,len);
-            HAL_UART_Transmit_IT(Moudle_use,TX_temp_g_use,len);              //直接发送当前数据
+    if((Moudle_use == NULL) || (FIFO_use == NULL) || (TX_temp_g_use == NULL) || (data == NULL) || (len == 0u) || (len > CN_UART_TEMP_SIZE)){
+        return;
+    }
+
+    uint32_t primask=__get_PRIMASK();
+    __disable_irq();
+    if(CN_FIFO_write(FIFO_use,data,(uint16_t)len)!=0u){
+        if(Moudle_use->gState==HAL_UART_STATE_READY){
+            CN_UART_start_tx_from_fifo(Moudle_use,FIFO_use,TX_temp_g_use);
         }
     }
-    else{                                                           //如果串口忙
-        // printf("write fifo\n");
-        CN_FIFO_write(FIFO_use,data,len);                           //写入当前数据到FIFO
+    if(primask==0u){
+        __enable_irq();
     }
 }
 
@@ -617,7 +622,7 @@ void UART8_IRQHandler(void){HAL_UART_IRQHandler(&UART8_Handle);}
 // void CN_UART1_RX_CALLBACK(uint8_t dat){
 //     ARM_RX_Callback(dat);
 // }
-//void CN_UART2_RX_CALLBACK(uint8_t dat){}
+// void CN_UART2_RX_CALLBACK(uint8_t dat){}
 // void CN_UART3_RX_CALLBACK(uint8_t dat){}
 void CN_UART4_RX_CALLBACK(uint8_t dat){}
 void CN_UART5_RX_CALLBACK(uint8_t dat){}
@@ -627,62 +632,30 @@ void CN_UART8_RX_CALLBACK(uint8_t dat){}
 
 // 串口发送回调函数
 void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart){
-    
+
     if(huart->Instance==USART1){
-        uint32_t FIFO_occupied=CN_get_FIFO_occupied(&CN_UART1_FIFO);      //计算FIFO剩余字节数
-        if(FIFO_occupied>0){                                        //如果FIFO中还有数据  
-            CN_FIFO_read(&CN_UART1_FIFO,U1_TX_temp_g,FIFO_occupied);              //读出FIFO剩余数据
-            HAL_UART_Transmit_IT(&UART1_Handle,U1_TX_temp_g,FIFO_occupied);    //发送剩余数据
-        }
+        CN_UART_start_tx_from_fifo(&UART1_Handle,&CN_UART1_FIFO,U1_TX_temp_g);
     }
-    if(huart->Instance==USART2){
-        uint32_t FIFO_occupied=CN_get_FIFO_occupied(&CN_UART2_FIFO);      //计算FIFO剩余字节数
-        if(FIFO_occupied>0){                                        //如果FIFO中还有数据
-            CN_FIFO_read(&CN_UART2_FIFO,U2_TX_temp_g,FIFO_occupied);              //读出FIFO剩余数据
-            HAL_UART_Transmit_IT(&UART2_Handle,U2_TX_temp_g,FIFO_occupied);    //发送剩余数据
-        }
+    else if(huart->Instance==USART2){
+        CN_UART_start_tx_from_fifo(&UART2_Handle,&CN_UART2_FIFO,U2_TX_temp_g);
     }
-    if(huart->Instance==USART3){
-        uint32_t FIFO_occupied=CN_get_FIFO_occupied(&CN_UART3_FIFO);      //计算FIFO剩余字节数
-        if(FIFO_occupied>0){               //如果FIFO中还有数据        
-            CN_FIFO_read(&CN_UART3_FIFO,U3_TX_temp_g,FIFO_occupied);              //读出FIFO剩余数据
-            HAL_UART_Transmit_IT(&UART3_Handle,U3_TX_temp_g,FIFO_occupied);    //发送剩余数据
-        }
+    else if(huart->Instance==USART3){
+        CN_UART_start_tx_from_fifo(&UART3_Handle,&CN_UART3_FIFO,U3_TX_temp_g);
     }
-    if(huart->Instance==UART4){
-        uint32_t FIFO_occupied=CN_get_FIFO_occupied(&CN_UART4_FIFO);      //计算FIFO剩余字节数
-        if(FIFO_occupied>0){               //如果FIFO中还有数据       
-            CN_FIFO_read(&CN_UART4_FIFO,U4_TX_temp_g,FIFO_occupied);              //读出FIFO剩余数据
-            HAL_UART_Transmit_IT(&UART4_Handle,U4_TX_temp_g,FIFO_occupied);    //发送剩余数据
-        }
+    else if(huart->Instance==UART4){
+        CN_UART_start_tx_from_fifo(&UART4_Handle,&CN_UART4_FIFO,U4_TX_temp_g);
     }
-    if(huart->Instance==UART5){
-        uint32_t FIFO_occupied=CN_get_FIFO_occupied(&CN_UART5_FIFO);      //计算FIFO剩余字节数
-        if(FIFO_occupied>0){               //如果FIFO中还有数据       
-            CN_FIFO_read(&CN_UART5_FIFO,U5_TX_temp_g,FIFO_occupied);              //读出FIFO剩余数据
-            HAL_UART_Transmit_IT(&UART5_Handle,U5_TX_temp_g,FIFO_occupied);    //发送剩余数据
-        }
+    else if(huart->Instance==UART5){
+        CN_UART_start_tx_from_fifo(&UART5_Handle,&CN_UART5_FIFO,U5_TX_temp_g);
     }
-    if(huart->Instance==USART6){
-        uint32_t FIFO_occupied=CN_get_FIFO_occupied(&CN_UART6_FIFO);      //计算FIFO剩余字节数
-        if(FIFO_occupied>0){               //如果FIFO中还有数据       
-            CN_FIFO_read(&CN_UART6_FIFO,U6_TX_temp_g,FIFO_occupied);              //读出FIFO剩余数据
-            HAL_UART_Transmit_IT(&UART6_Handle,U6_TX_temp_g,FIFO_occupied);    //发送剩余数据
-        }
+    else if(huart->Instance==USART6){
+        CN_UART_start_tx_from_fifo(&UART6_Handle,&CN_UART6_FIFO,U6_TX_temp_g);
     }
-    if(huart->Instance==UART7){
-        uint32_t FIFO_occupied=CN_get_FIFO_occupied(&CN_UART7_FIFO);      //计算FIFO剩余字节数
-        if(FIFO_occupied>0){               //如果FIFO中还有数据       
-            CN_FIFO_read(&CN_UART7_FIFO,U7_TX_temp_g,FIFO_occupied);              //读出FIFO剩余数据
-            HAL_UART_Transmit_IT(&UART7_Handle,U7_TX_temp_g,FIFO_occupied);    //发送剩余数据
-        }
+    else if(huart->Instance==UART7){
+        CN_UART_start_tx_from_fifo(&UART7_Handle,&CN_UART7_FIFO,U7_TX_temp_g);
     }
-    if(huart->Instance==UART8){
-        uint32_t FIFO_occupied=CN_get_FIFO_occupied(&CN_UART8_FIFO);      //计算FIFO剩余字节数
-        if(FIFO_occupied>0){               //如果FIFO中还有数据       
-            CN_FIFO_read(&CN_UART8_FIFO,U8_TX_temp_g,FIFO_occupied);              //读出FIFO剩余数据
-            HAL_UART_Transmit_IT(&UART8_Handle,U8_TX_temp_g,FIFO_occupied);    //发送剩余数据
-        }
+    else if(huart->Instance==UART8){
+        CN_UART_start_tx_from_fifo(&UART8_Handle,&CN_UART8_FIFO,U8_TX_temp_g);
     }
 }
 

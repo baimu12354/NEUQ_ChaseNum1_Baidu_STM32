@@ -46,7 +46,7 @@
 #define MAIN_COM_STATUS_PAYLOAD_LEN      (21u)
 
 #define MAIN_COM_CMD_TIMEOUT_MS          (500u)
-#define MAIN_COM_FEEDBACK_DEFAULT_MS     (100u)
+#define MAIN_COM_FEEDBACK_DEFAULT_MS     (0u)
 #define MAIN_COM_FEEDBACK_MIN_MS         (20u)
 #define MAIN_COM_FEEDBACK_MAX_MS         (1000u)
 

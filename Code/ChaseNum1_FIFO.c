@@ -41,7 +41,8 @@ uint8_t CN_FIFO_read_Byte(CN_FIFO_struct *FIFO,uint8_t *pdata){//从FIFO尾部�
     }
     else{
         *pdata=FIFO->temp[FIFO->tail];//从尾部读出一个字节数据
-        if(FIFO->tail++>=FIFO->temp_len){//尾指针位移
+        FIFO->tail++;//尾指针位移
+        if(FIFO->tail>=FIFO->temp_len){
             FIFO->tail=0;
         }
         FIFO->is_FIFO_full=0;//清除满缓存状态
@@ -55,7 +56,8 @@ uint8_t CN_FIFO_write_Byte(CN_FIFO_struct *FIFO,uint8_t data){//从FIFO头部写
     }
     else{
         FIFO->temp[FIFO->head]=data;//写入数据
-        if(FIFO->head++>=FIFO->temp_len){//头指针位移
+        FIFO->head++;//头指针位移
+        if(FIFO->head>=FIFO->temp_len){
             FIFO->head=0;
         }
         if(FIFO->head==FIFO->tail){//检查满缓存状态

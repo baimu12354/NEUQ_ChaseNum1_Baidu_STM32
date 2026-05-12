@@ -1,5 +1,5 @@
 serial:
-  port: COM3
+  port: COM29
   baudrate: 115200
   bytesize: 8
   parity: N

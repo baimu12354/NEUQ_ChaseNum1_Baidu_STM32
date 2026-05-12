@@ -277,6 +277,8 @@ static void Main_COM_process_package(const Main_COM_Package_t *package)
         }
 
         case MAIN_COM_CMD_GET_STATUS: {
+            uint8_t data = 1;
+            CN_UART_write_fifo(CN_UART_3,&data,1);
             if (package->load_len != 0u) {
                 Main_COM_send_error(cmd, MAIN_COM_ERR_BAD_LEN);
                 break;
