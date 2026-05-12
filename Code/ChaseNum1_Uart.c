@@ -53,7 +53,7 @@ uint8_t UART_8_RX_dat=0;
 void CN_UART1_init(void){
     GPIO_InitTypeDef GPIO_Initure={0};
 
-    //使用车载接口
+    // 使用车载接口
     __HAL_RCC_GPIOB_CLK_ENABLE();
     GPIO_Initure.Pin=GPIO_PIN_14|GPIO_PIN_15;
 	GPIO_Initure.Mode=GPIO_MODE_AF_PP;      //复用模式

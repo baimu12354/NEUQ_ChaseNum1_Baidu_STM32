@@ -3,7 +3,13 @@
 
 #include "stm32h7xx_hal.h"
 
-//----------------------------- 通信协议 ----------------------------- //
+// 1: FDCAN1 uses PD0(RX)/PD1(TX), 0: FDCAN1 uses PH14(RX)/PH13(TX).
+#define IMU_CAN_USE_FDCAN1_PD01        (0u)
+
+#define IMU_CAN_DEFAULT_DEVICE_ID      (0x01u)
+#define IMU_CAN_DEFAULT_MASTER_ID      (0x11u)
+
+// DM-IMU CAN data decode ranges.
 #define ACCEL_CAN_MAX   (235.2f)
 #define ACCEL_CAN_MIN   (-235.2f)
 #define GYRO_CAN_MAX    (34.88f)
@@ -14,14 +20,35 @@
 #define ROLL_CAN_MIN    (-180.0f)
 #define YAW_CAN_MAX     (180.0f)
 #define YAW_CAN_MIN     (-180.0f)
+#define TEMP_MIN        (0.0f)
+#define TEMP_MAX        (60.0f)
 #define Quaternion_MIN  (-1.0f)
 #define Quaternion_MAX  (1.0f)
 
-#define CMD_READ  0
-#define CMD_WRITE 1
+#define CMD_READ        (0u)
+#define CMD_WRITE       (1u)
 
-// IMU指令 寄存器 ID 定义
-typedef enum 
+typedef enum
+{
+    COM_USB = 0,
+    COM_RS485,
+    COM_CAN,
+    COM_VOFA
+} imu_com_port_e;
+
+typedef enum
+{
+    CAN_BAUD_1M = 0,
+    CAN_BAUD_500K,
+    CAN_BAUD_400K,
+    CAN_BAUD_250K,
+    CAN_BAUD_200K,
+    CAN_BAUD_100K,
+    CAN_BAUD_50K,
+    CAN_BAUD_25K
+} imu_baudrate_e;
+
+typedef enum
 {
     REBOOT_IMU = 0,
     ACCEL_DATA,
@@ -42,38 +69,77 @@ typedef enum
     SAVE_PARAM = 254,
     RESTORE_SETTING = 255
 } reg_id_e;
-//----------------------------- 通信协议 ----------------------------- //
 
-//----------------------------- 对外接口 ----------------------------- //
-// IMU 数据结构体，用来存放解析后的姿态数据
 typedef struct
 {
-    uint8_t can_id;         // 陀螺仪的 CAN ID (通常为 0x01)
-    uint8_t mst_id;         // 主机的 CAN ID (通常为 0x11)
-    
-    FDCAN_HandleTypeDef *can_handle; // 绑定的 CAN 句柄
-    
-    float pitch;            // 俯仰角
-    float roll;             // 横滚角
-    float yaw;              // 偏航角
+    uint8_t can_id;
+    uint8_t mst_id;
 
-    float gyro[3];          // 存放三轴角速度
-    float accel[3];         // 存放三轴加速度
-    float q[4];             // 存放四元数
+    FDCAN_HandleTypeDef *can_handle;
+
+    float pitch;
+    float roll;
+    float yaw;
+
+    float gyro[3];
+    float accel[3];
+    float q[4];
+    float cur_temp;
 } imu_t;
 
-// 全局变量和句柄
+typedef struct
+{
+    uint32_t init_error_step;
+    uint32_t rx_callback_count;
+    uint32_t rx_frame_count;
+    uint32_t rx_bad_len_count;
+    uint32_t tx_success_count;
+    uint32_t tx_fail_count;
+    uint32_t tx_no_fifo_count;
+    uint32_t last_tx_id;
+    uint32_t last_tx_reg;
+    uint32_t last_tx_action;
+    uint32_t last_tx_data;
+    uint32_t last_rx_id;
+    uint32_t last_rx_dlc;
+    uint32_t last_hal_error;
+    uint32_t last_protocol_error;
+    uint32_t bus_off;
+    uint32_t error_passive;
+    uint32_t warning;
+    uint8_t last_tx_payload[8];
+    uint8_t last_rx_data[8];
+} imu_can_status_t;
+
 extern imu_t imu;
 extern FDCAN_HandleTypeDef hfdcan1;
+extern volatile imu_can_status_t imu_can_status;
 
-// 初始化模块：包含 FDCAN1 硬件初始化、引脚配置、中断开启以及 IMU 对象绑定 
 void IMU_CAN_Init(void);
 
-// 请求数据的指令函数 
+void imu_write_reg(uint8_t reg_id, uint32_t data);
+void imu_read_reg(uint8_t reg_id);
+
+void imu_reboot(void);
+void imu_set_zero(void);
+void imu_accel_calibration(void);
+void imu_gyro_calibration(void);
+void imu_mag_calibration(void);
+void imu_change_com_port(imu_com_port_e port);
+void imu_set_active_mode_delay(uint32_t delay);
+void imu_change_to_active(void);
+void imu_change_to_request(void);
+void imu_set_baud(imu_baudrate_e baud);
+void imu_set_can_id(uint8_t can_id);
+void imu_set_mst_id(uint8_t mst_id);
+void imu_set_data_output_selection(uint32_t selection);
+void imu_save_parameters(void);
+void imu_restore_settings(void);
+void imu_set_local_ids(uint8_t can_id, uint8_t mst_id);
+
 void imu_request_accel(void);
 void imu_request_gyro(void);
 void imu_request_euler(void);
 void imu_request_quat(void);
-//----------------------------- 对外接口 ----------------------------- //
 
 #endif

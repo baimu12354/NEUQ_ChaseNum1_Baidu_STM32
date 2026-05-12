@@ -46,9 +46,10 @@ int main(void){
 	 printf("Move Init\n");
 	 CN_delay_ms(10);
 
-	 CN_3rd_Party_JY61_IMU_init();	 // 初始化陀螺仪
-	 printf("Imu Init\n");
-	 CN_delay_ms(10);
+	//  CN_3rd_Party_JY61_IMU_init();	 // 初始化陀螺仪
+	//  printf("Imu Init\n");
+	//  CN_delay_ms(10);
+     IMU_CAN_Init();
 
 	 // uart_receiver_init();
 	 Main_COM_init();
@@ -74,7 +75,16 @@ int main(void){
 	 CN_PIT_2_init_ms(1,2);          // PIT2初始化 服务于机械臂解算等外设
 
 	while(1){
-
+		
+        // imu_request_accel();
+		// imu_request_gyro();
+		// imu_request_euler();
+		// imu_request_quat();
+        // printf("eluer: %.2f,%.2f,%.2f\n",imu.yaw,imu.roll,imu.pitch);
+		// printf("accel: %.2f,%.2f,%.2f\n",imu.accel[0],imu.accel[2],imu.accel[3]);
+		// printf("gyro: %.2f,%.2f,%.2f\n",imu.gyro[0],imu.gyro[1],imu.gyro[2]);
+		// printf("temp:%.2f\n",imu.cur_temp);
+		// CN_delay_ms(50);
 	    Main_COM_Response_CALLBACK();
 		
 	}
