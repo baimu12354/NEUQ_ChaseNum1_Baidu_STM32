@@ -387,11 +387,11 @@ typedef enum{
 #pragma endregion
 
 #pragma region PUMP_TYPEDEF_REGION
-typedef struct{
-    uint8_t Pump_on;
-    uint8_t IfSucked;
-    uint32_t SuckStrength;
-}Pump_Handle_Struct;
+// typedef struct{
+//     uint8_t Pump_on;
+//     uint8_t IfSucked;
+//     uint32_t SuckStrength;
+// }Pump_Handle_Struct;
 #pragma endregion
 
 #pragma region TOF_TYPEDEF_REGION

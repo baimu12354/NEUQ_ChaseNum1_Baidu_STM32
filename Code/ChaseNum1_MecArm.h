@@ -4,11 +4,12 @@
 #include "stm32h7xx_hal.h"
 
 // 定义一个全局结构体用于存放上位机下发的命令
+// 0x01 运动命令载荷：world_x、world_y、world_z、suc_dir_deg，共 4 个 float，单位为 cm/deg
 typedef struct {
-    float th0;
-    float x;
-    float y;
-    float th3;
+    float world_x;     // 吸盘末端世界 X 坐标，单位 cm
+    float world_y;     // 吸盘末端世界 Y 坐标，单位 cm
+    float world_z;     // 吸盘末端世界 Z 坐标，单位 cm
+    float suc_dir_deg; // 吸盘在目标竖直平面内的绝对方向，平面+深度=90deg, +Z=180deg
     uint8_t run_flag; // 1: 正常运行, 0: 急停
     uint8_t new_cmd_flag; // 1表示收到了新指令，主循环处理完后清0
 } HostCmd_t;
@@ -32,8 +33,9 @@ void ARM_RX_Callback(uint8_t dat);
 // 机械臂初始化
 void Arm_Init(void);
 
-// 机械臂解算
-uint8_t Arm_Inverse_Kinematics(float plane_x, float plane_y, float *out_th1, float *out_th2);
+// 机械臂解算：输入吸盘末端世界坐标与吸盘竖直平面内绝对方向，输出四个虚拟角度
+uint8_t Arm_Inverse_Kinematics(float world_x, float world_y, float world_z, float suc_dir_deg,
+                               float *out_th0, float *out_th1, float *out_th2, float *out_th3);
 
 // 物理映射
 void Arm_Execute_Move(float v_th0, float v_th1, float v_th2, float v_th3);

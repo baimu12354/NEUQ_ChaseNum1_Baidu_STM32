@@ -1,81 +1,75 @@
 #include "ChaseNum1_Include.h"
-#include <string.h> // for memcpy
+#include <string.h>
 #include <stdio.h>
 
-HostCmd_t g_HostCmd; // 引用刚刚定义的结构体
+HostCmd_t g_HostCmd;
 
-// 放在 uart1 回调中
-void ARM_RX_Callback(uint8_t dat) 
+// 从上位机机械臂协议中解析一个字节。
+void ARM_RX_Callback(uint8_t dat)
 {
     static ProtocolState_t state = STATE_WAIT_H1;
     static uint8_t rx_buf[20];
     static uint8_t rx_cnt = 0;
     static uint8_t checksum = 0;
 
-    switch(state) {
+    switch (state) {
         case STATE_WAIT_H1:
-            if(dat == 0x5A) {
+            if (dat == 0x5A) {
                 state = STATE_WAIT_H2;
                 checksum = 0;
             }
             break;
-            
+
         case STATE_WAIT_H2:
-            if(dat == 0xA5) state = STATE_WAIT_CMD;
-            else state = STATE_WAIT_H1;
+            state = (dat == 0xA5) ? STATE_WAIT_CMD : STATE_WAIT_H1;
             break;
-            
+
         case STATE_WAIT_CMD:
-            rx_buf[0] = dat; // 保存指令类型
+            rx_buf[0] = dat;
             checksum += dat;
             rx_cnt = 1;
-            if(dat == 0x00) {
-                state = STATE_WAIT_CHECK; // 急停无数据载荷，直接等校验和
+            if (dat == 0x00) {
+                state = STATE_WAIT_CHECK;
             } else if (dat == 0x01) {
-                state = STATE_RECEIVE_DATA; // 任务指令，准备接收 16 字节浮点数
+                state = STATE_RECEIVE_DATA;
             } else {
-                state = STATE_WAIT_H1; // 未知指令，丢弃
+                state = STATE_WAIT_H1;
             }
             break;
-            
+
         case STATE_RECEIVE_DATA:
             rx_buf[rx_cnt++] = dat;
             checksum += dat;
-            if(rx_cnt >= 17) { // 1字节指令 + 16字节数据
+            if (rx_cnt >= 17) {
                 state = STATE_WAIT_CHECK;
             }
             break;
-            
+
         case STATE_WAIT_CHECK:
-            if(dat == checksum) state = STATE_WAIT_T1;
-            else state = STATE_WAIT_H1; // 校验和错误，丢弃整帧
+            state = (dat == checksum) ? STATE_WAIT_T1 : STATE_WAIT_H1;
             break;
-            
+
         case STATE_WAIT_T1:
-            if(dat == 0x0D) state = STATE_WAIT_T2;
-            else state = STATE_WAIT_H1;
+            state = (dat == 0x0D) ? STATE_WAIT_T2 : STATE_WAIT_H1;
             break;
-            
+
         case STATE_WAIT_T2:
-            if(dat == 0x0A) {
-                // 成功接收到完整且校验正确的一帧数据！
-                if(rx_buf[0] == 0x00) {
-                    g_HostCmd.run_flag = 0; // 触发急停
+            if (dat == 0x0A) {
+                if (rx_buf[0] == 0x00) {
+                    g_HostCmd.run_flag = 0;
                     g_HostCmd.new_cmd_flag = 1;
-                } 
-                else if(rx_buf[0] == 0x01) {
+                } else if (rx_buf[0] == 0x01) {
                     g_HostCmd.run_flag = 1;
-                    // 使用 memcpy 将字节流直接转回 float (规避内存对齐问题)
-                    memcpy(&g_HostCmd.th0, &rx_buf[1],  4);
-                    memcpy(&g_HostCmd.x,   &rx_buf[5],  4);
-                    memcpy(&g_HostCmd.y,   &rx_buf[9],  4);
-                    memcpy(&g_HostCmd.th3, &rx_buf[13], 4);
+                    memcpy(&g_HostCmd.world_x,     &rx_buf[1],  4);
+                    memcpy(&g_HostCmd.world_y,     &rx_buf[5],  4);
+                    memcpy(&g_HostCmd.world_z,     &rx_buf[9],  4);
+                    memcpy(&g_HostCmd.suc_dir_deg, &rx_buf[13], 4);
                     g_HostCmd.new_cmd_flag = 1;
                 }
             }
-            state = STATE_WAIT_H1; // 恢复初始状态，等待下一帧
+            state = STATE_WAIT_H1;
             break;
-            
+
         default:
             state = STATE_WAIT_H1;
             break;
@@ -83,203 +77,750 @@ void ARM_RX_Callback(uint8_t dat)
 }
 
 #ifndef M_PI
+// 机械臂逆解使用的圆周率常量。
 #define M_PI 3.14159265358979323846f
 #endif
 
+// 云台中心距地面高度，单位 cm。
+#define ARM_H0      8.8f
+// 云台中心到大齿轮关节的高度差，单位 cm。
+#define ARM_H1      6.5f
+// 云台中心到大齿轮关节的水平投影偏置，单位 cm。
+#define ARM_R       3.0f
+// 第一段机械臂名义长度，单位 cm。
+#define ARM_L1      17.5f
+// 第二关节相对第一段机械臂的垂直机械偏置，单位 cm。
+#define ARM_C       2.5f
+// 第二段机械臂长度，单位 cm。
+#define ARM_L2      20.5f
+// 第四舵机轴心到吸盘末端的距离，单位 cm。
+#define ARM_L3      11.0f
 
-// 机械臂物理结构参数 (单位: cm)
-#define ARM_H0      6.5f    // 云台高度
-#define ARM_H1      6.5f    // 齿轮相对云台高度
-#define ARM_R       3.0f    // 大齿轮投影中心距
-#define ARM_L1      20.0f   // 臂1长度
-#define ARM_C       2.5f    // 舵机2偏置距离
-#define ARM_L2      17.5f    // 臂2长度
-
-
-// 舵机真实物理标定参数 (虚拟映射与物理硬限幅)
-// [舵机 0] 底座旋转 (单圈)
+// 0 号舵机总线 ID。
 #define S0_ID       0
+// 0 号舵机虚拟角到物理角的比例。
 #define S0_GEAR     1.0f
-#define S0_DIR      1.0f    
-#define S0_OFFSET   5.0f    
-#define S0_MIN      -180.0f 
-#define S0_MAX      180.0f  
+// 0 号舵机虚拟角到物理角的方向。
+#define S0_DIR      1.0f
+// 0 号舵机物理零点偏置，单位 deg。
+#define S0_OFFSET   5.0f
+// 0 号舵机物理最小限位，单位 deg。
+#define S0_MIN      -180.0f
+// 0 号舵机物理最大限位，单位 deg。
+#define S0_MAX      180.0f
 
-// [舵机 1] 大齿轮驱动 (多圈)
-// 抬升时实际角度往负数走
+// 1 号舵机总线 ID。
 #define S1_ID       1
-#define S1_GEAR     3.0f    
-#define S1_DIR      1.0f   
-#define S1_OFFSET   -555.0f  
-#define S1_MIN      -555.0f 
-#define S1_MAX      -15.0f  
+// 1 号舵机虚拟角到物理角的比例。
+#define S1_GEAR     3.0f
+// 1 号舵机虚拟角到物理角的方向。
+#define S1_DIR      1.0f
+// 1 号舵机物理零点偏置，单位 deg。
+#define S1_OFFSET   -533.0f
+// 1 号舵机物理最小限位，单位 deg。
+#define S1_MIN      -533.0f
+// 1 号舵机物理最大限位，单位 deg。
+#define S1_MAX      7.0f
 
-// [舵机 2] 肘部关节 (单圈)
-// 抬升实际角度减小
+// 2 号舵机总线 ID。
 #define S2_ID       2
+// 2 号舵机虚拟角到物理角的比例。
 #define S2_GEAR     1.0f
-#define S2_DIR      -1.0f   
-#define S2_OFFSET   30.0f    
-#define S2_MIN      -120.0f 
-#define S2_MAX      180.0f  
+// 2 号舵机虚拟角到物理角的方向。
+#define S2_DIR      -1.0f
+// 2 号舵机物理零点偏置，单位 deg。
+#define S2_OFFSET   -13.0f
+// 2 号舵机物理最小限位，单位 deg。
+#define S2_MIN      -90.0f
+// 2 号舵机物理最大限位，单位 deg。
+#define S2_MAX      150.0f
 
-// [舵机 3] 吸盘关节 (单圈)
-// 抬升实际角度减小
+// 3 号舵机总线 ID。
 #define S3_ID       3
+// 3 号舵机虚拟角到物理角的比例。
 #define S3_GEAR     1.0f
-#define S3_DIR      -1.0f   
-#define S3_OFFSET   0.0f    
-#define S3_MIN      -90.0f  
-#define S3_MAX      90.0f   
+// 3 号舵机虚拟角到物理角的方向。
+#define S3_DIR      -1.0f
+// 3 号舵机物理零点偏置，单位 deg。
+#define S3_OFFSET   -100.0f
+// 3 号舵机物理最小限位，单位 deg。
+#define S3_MIN      -190.0f
+// 3 号舵机物理最大限位，放开到正向以支持吸盘竖直向下，单位 deg。
+#define S3_MAX      10.0f
 
-// 机械臂初始化
-void Arm_Init(void) {
+// 用于向上位机回传机械臂状态的串口。
+#define ARM_HOST_UART CN_UART_1
+// 置 1 使用速度型同步命令；置 0 回退为逐个舵机速度命令。
+#define ARM_USE_SYNC_SERVO_SPEED_CMD   2
+// 发送给总线舵机的默认速度，单位 0.1 deg/s。
+#define ARM_SERVO_MOVE_SPEED           180U
+// 速度命令的加速时间，单位 ms。
+#define ARM_SERVO_ACCEL_TIME_MS        120U
+// 速度命令的减速时间，单位 ms。
+#define ARM_SERVO_DECEL_TIME_MS        120U
+// 舵机功率限制；0 表示保持舵机固件默认值。
+#define ARM_SERVO_POWER_LIMIT          0U
 
-    // 调用总线舵机底层初始化 (打开 UART7)
-    Servo_Init();
+// 判断目标是否跨过 x=0 平面时使用的世界 X 死区，单位 cm。
+#define ARM_X_SIDE_EPS_CM              0.0f
+// 收敛姿态中 1 号舵机的虚拟角，保持保守角度避免初始化越位，单位 deg。
+#define ARM_FOLD_TH1_DEG               120.0f
+// 收敛姿态允许的 1 号舵机虚拟角上限，防止初始化姿态超过实物机械行程，单位 deg。
+#define ARM_FOLD_TH1_MAX_DEG           150.0f
+// 收敛姿态中 2 号舵机的虚拟角，负值表示第二段机械臂向第一段回折，单位 deg。
+#define ARM_FOLD_TH2_DEG               -145.0f
+// 收敛姿态中 3 号舵机的虚拟角，使末端吸盘略向上抬，单位 deg。
+#define ARM_FOLD_TH3_DEG               75.0f
+// 固定收敛姿态距离各物理限位的最小安全余量，单位 deg。
+#define ARM_FOLD_SAFE_MARGIN           10.0f
+// 只有云台角变化小到接近数值噪声时才跳过收敛转平面阶段，单位 deg。
+#define ARM_PLANE_ROTATE_SKIP_DEG      0.05f
+// 每个阶段速度估算后追加的非阻塞等待余量，单位 ms。
+#define ARM_PHASE_SETTLE_EXTRA_MS      200U
+// 进入下一阶段前的最小非阻塞等待时间，单位 ms。
+#define ARM_PHASE_MIN_INTERVAL_MS      350U
+// 进入下一阶段前的最大非阻塞等待时间，单位 ms。
+#define ARM_PHASE_MAX_INTERVAL_MS      15000U
+// 最大阶段数：收敛、转平面、展开。
+#define ARM_PLAN_PHASE_MAX             3U
 
-    // 初始姿态
-    float t1=0,t2=0;
-	Arm_Inverse_Kinematics(5, 20, &t1, &t2);
-	Arm_Execute_Move(0, t1,t2, 0);
+// 前方竖直细杆的参考 Y 坐标，单位 cm。
+#define ARM_FRONT_ROD_Y_CM             30.0f
+// 前方竖直细杆的保守避让半径，最终吸盘末端不得进入该范围，单位 cm。
+#define ARM_FRONT_ROD_RADIUS_CM        1.5f
+
+typedef struct {
+    float x;
+    float y;
+    float z;
+    float dir;
+} ArmWorldTarget_t;
+
+typedef struct {
+    float th0;
+    float th1;
+    float th2;
+    float th3;
+} ArmJointPose_t;
+
+typedef struct {
+    ArmWorldTarget_t target;
+    ArmJointPose_t pose;
+    uint32_t wait_ms;
+    const char *name;
+} ArmPlanPhase_t;
+
+typedef struct {
+    uint8_t active;
+    uint8_t phase_count;
+    uint8_t phase_index;
+    uint32_t phase_start_tick;
+    ArmPlanPhase_t phases[ARM_PLAN_PHASE_MAX];
+    ArmWorldTarget_t final_target;
+    ArmJointPose_t final_pose;
+} ArmMotionPlan_t;
+
+static ArmWorldTarget_t g_arm_current_target = {0.0f, 0.0f, 0.0f, 90.0f};
+static ArmJointPose_t g_arm_current_joint = {0.0f, 0.0f, 0.0f, 0.0f};
+static uint8_t g_arm_current_valid = 0;
+static const char *g_arm_last_error = "OK";
+static ArmMotionPlan_t g_arm_plan = {0};
+
+// 将角度归一化到 [-180, 180)。
+static float Arm_Normalize_Deg(float angle_deg)
+{
+    while (angle_deg >= 180.0f) angle_deg -= 360.0f;
+    while (angle_deg < -180.0f) angle_deg += 360.0f;
+    return angle_deg;
 }
 
-// 机械臂解算
-uint8_t Arm_Inverse_Kinematics(float plane_x, float plane_y, float *out_th1, float *out_th2) {
-    float L_eff = sqrtf(ARM_L1 * ARM_L1 + ARM_C * ARM_C);
-    float phi = atan2f(ARM_C, ARM_L1);
-    
-    float dx = plane_x - ARM_R;
-    float dy = plane_y - (ARM_H0 + ARM_H1);
-    float D = sqrtf(dx * dx + dy * dy);
-    
-    if (D > (L_eff + ARM_L2) || D < fabsf(L_eff - ARM_L2)) {
-        return 0; // 越界，连杆无法触达
-    }
-    
-    float cos_beta = (L_eff * L_eff + D * D - ARM_L2 * ARM_L2) / (2.0f * L_eff * D);
-    float beta = acosf(fmaxf(-1.0f, fminf(1.0f, cos_beta)));
-    float alpha = atan2f(dy, dx);
-    
-    float theta_eff = alpha + beta;
-    float theta1_rad = theta_eff - phi;
-    
-    float cos_gamma = (L_eff * L_eff + ARM_L2 * ARM_L2 - D * D) / (2.0f * L_eff * ARM_L2);
-    float gamma = acosf(fmaxf(-1.0f, fminf(1.0f, cos_gamma)));
-    float theta2_rad = gamma - M_PI + phi;
-    
-    *out_th1 = theta1_rad * 180.0f / M_PI;
-    *out_th2 = theta2_rad * 180.0f / M_PI;
-    
+// 返回浮点数绝对值。
+static float Arm_Abs_Float(float value)
+{
+    return (value >= 0.0f) ? value : -value;
+}
+
+// 返回两个浮点数中的较大值。
+static float Arm_Max_Float(float a, float b)
+{
+    return (a > b) ? a : b;
+}
+
+// 将 uint32 数值限制在指定上下限之间。
+static uint32_t Arm_Clamp_U32(uint32_t value, uint32_t min_value, uint32_t max_value)
+{
+    if (value < min_value) return min_value;
+    if (value > max_value) return max_value;
+    return value;
+}
+
+// 将目标世界 XY 坐标转换为云台虚拟角。
+static float Arm_World_To_Base_Angle(float world_x, float world_y)
+{
+    float depth = sqrtf(world_x * world_x + world_y * world_y);
+    if (depth <= 0.001f) return 0.0f;
+    return Arm_Normalize_Deg(atan2f(world_x, world_y) * 180.0f / M_PI);
+}
+
+// 带死区判断世界 X 坐标位于正侧、负侧还是零点附近。
+static int8_t Arm_Get_World_X_Side(float world_x)
+{
+    if (world_x > ARM_X_SIDE_EPS_CM) return 1;
+    if (world_x < -ARM_X_SIDE_EPS_CM) return -1;
+    return 0;
+}
+
+// 判断新目标是否从当前非零 X 侧跨到另一侧。
+static uint8_t Arm_Target_Crosses_X_Zero(const ArmWorldTarget_t *target)
+{
+    int8_t current_side = 0;
+    int8_t target_side = 0;
+
+    if (target == NULL || !g_arm_current_valid) return 0;
+
+    current_side = Arm_Get_World_X_Side(g_arm_current_target.x);
+    target_side = Arm_Get_World_X_Side(target->x);
+    return (current_side != 0 && target_side != 0 && current_side != target_side) ? 1U : 0U;
+}
+
+// 根据一组虚拟关节角正解出吸盘末端的世界坐标记录。
+static ArmWorldTarget_t Arm_Forward_Target_From_Pose(const ArmJointPose_t *pose)
+{
+    ArmWorldTarget_t target = {0.0f, 0.0f, 0.0f, 90.0f};
+    float r0 = 0.0f;
+    float r1 = 0.0f;
+    float r12 = 0.0f;
+    float r123 = 0.0f;
+    float plane_x = 0.0f;
+    float plane_z = 0.0f;
+
+    if (pose == NULL) return target;
+
+    r0 = pose->th0 * M_PI / 180.0f;
+    r1 = pose->th1 * M_PI / 180.0f;
+    r12 = (pose->th1 + pose->th2) * M_PI / 180.0f;
+    r123 = (pose->th1 + pose->th2 + pose->th3) * M_PI / 180.0f;
+
+    plane_x = ARM_R
+              + ARM_L1 * cosf(r1)
+              - ARM_C * sinf(r1)
+              + ARM_L2 * cosf(r12)
+              + ARM_L3 * cosf(r123);
+    plane_z = ARM_H0 + ARM_H1
+              + ARM_L1 * sinf(r1)
+              + ARM_C * cosf(r1)
+              + ARM_L2 * sinf(r12)
+              + ARM_L3 * sinf(r123);
+
+    target.x = plane_x * sinf(r0);
+    target.y = plane_x * cosf(r0);
+    target.z = plane_z;
+    target.dir = Arm_Normalize_Deg(pose->th1 + pose->th2 + pose->th3 + 90.0f);
+    return target;
+}
+
+// 将虚拟关节角映射为标定后的真实舵机角。
+static void Arm_Map_To_Servo_Angles(float v_th0, float v_th1, float v_th2, float v_th3,
+                                    float *actual_s0, float *actual_s1,
+                                    float *actual_s2, float *actual_s3)
+{
+    *actual_s0 = (v_th0 * S0_GEAR * S0_DIR) + S0_OFFSET;
+    *actual_s1 = (v_th1 * S1_GEAR * S1_DIR) + S1_OFFSET;
+    *actual_s2 = (v_th2 * S2_GEAR * S2_DIR) + S2_OFFSET;
+    *actual_s3 = (v_th3 * S3_GEAR * S3_DIR) + S3_OFFSET;
+}
+
+// 按指定安全余量检查标定后的真实舵机角是否越限。
+static uint8_t Arm_Is_Servo_Angle_In_Range_With_Margin(float v_th0, float v_th1, float v_th2,
+                                                       float v_th3, float margin_deg)
+{
+    float actual_s0 = 0.0f;
+    float actual_s1 = 0.0f;
+    float actual_s2 = 0.0f;
+    float actual_s3 = 0.0f;
+
+    Arm_Map_To_Servo_Angles(v_th0, v_th1, v_th2, v_th3,
+                            &actual_s0, &actual_s1, &actual_s2, &actual_s3);
+
+    if (actual_s0 < S0_MIN + margin_deg || actual_s0 > S0_MAX - margin_deg) return 0;
+    if (actual_s1 < S1_MIN + margin_deg || actual_s1 > S1_MAX - margin_deg) return 0;
+    if (actual_s2 < S2_MIN + margin_deg || actual_s2 > S2_MAX - margin_deg) return 0;
+    if (actual_s3 < S3_MIN + margin_deg || actual_s3 > S3_MAX - margin_deg) return 0;
     return 1;
 }
 
-// 物理映射
-void Arm_Execute_Move(float v_th0, float v_th1, float v_th2, float v_th3) {
-    // 物理角度映射
-    float actual_s0 = (v_th0 * S0_GEAR * S0_DIR) + S0_OFFSET;
-    float actual_s1 = (v_th1 * S1_GEAR * S1_DIR) + S1_OFFSET;
-    float actual_s2 = (v_th2 * S2_GEAR * S2_DIR) + S2_OFFSET;
-    float actual_s3 = (v_th3 * S3_GEAR * S3_DIR) + S3_OFFSET;
-    
-    // 物理硬限幅
-    actual_s0 = fmaxf(S0_MIN, fminf(S0_MAX, actual_s0));
-    actual_s1 = fmaxf(S1_MIN, fminf(S1_MAX, actual_s1));
-    actual_s2 = fmaxf(S2_MIN, fminf(S2_MAX, actual_s2));
-    actual_s3 = fmaxf(S3_MIN, fminf(S3_MAX, actual_s3));
-    
-    // 速度与时间控制
-    //uint16_t move_time = 1000;   // 运动总时间 (ms)
-    uint16_t move_speed = 100;   // 运动速度 (10°/s) 
-    uint16_t accel_time = 200;   // 柔性加速 (ms)
-    uint16_t decel_time = 200;   // 柔性减速 (ms)
-    uint16_t power = 0;
-    
-    
-    // 舵机驱动
-    Servo_Advanced_Single_Turn_Speed(S0_ID, (int16_t)(actual_s0 * 10), move_speed, accel_time, decel_time, power);
-    Servo_Advanced_Multi_Turn_Speed( S1_ID, (int32_t)(actual_s1 * 10), (uint16_t)move_speed, accel_time, decel_time, power);
-    Servo_Advanced_Single_Turn_Speed(S2_ID, (int16_t)(actual_s2 * 10), move_speed, accel_time, decel_time, power);
-    Servo_Advanced_Single_Turn_Speed(S3_ID, (int16_t)(actual_s3 * 10), move_speed, accel_time, decel_time, power);
+// 检查标定后的真实舵机角是否处于硬限位范围内。
+static uint8_t Arm_Is_Servo_Angle_In_Range(float v_th0, float v_th1, float v_th2, float v_th3)
+{
+    return Arm_Is_Servo_Angle_In_Range_With_Margin(v_th0, v_th1, v_th2, v_th3, 0.0f);
 }
 
-// 机械臂解算测试
-void Arm_Standalone_Test(void) {
-    float v_th1 = 0.0f, v_th2 = 0.0f;
-    
-    // 定义一个简单的二维坐标轨迹：高处远点 -> 低处远点 -> 低处近点 -> 高处近点
-    // 格式: {th0, plane_x, plane_y, th3}
-    float test_points[4][4] = {
-        {0.0f,  15.0f, 15.0f, -30.0f}, // 动作 1：正前方，高处伸展
-        {0.0f,  15.0f,  5.0f, -60.0f}, // 动作 2：正前方，低处抓取
-        {45.0f,  8.0f,  5.0f,   0.0f}, // 动作 3：向左转45度，收回手臂
-        {45.0f,  8.0f, 15.0f,   0.0f}  // 动作 4：保持左转，抬高
+// 为指定云台平面生成固定收敛姿态。
+static uint8_t Arm_Build_Folded_Pose(float base_th0, ArmWorldTarget_t *target, ArmJointPose_t *pose)
+{
+    if (target == NULL || pose == NULL) return 0;
+
+    pose->th0 = Arm_Normalize_Deg(base_th0);
+    pose->th1 = ARM_FOLD_TH1_DEG;
+    pose->th2 = ARM_FOLD_TH2_DEG;
+    pose->th3 = ARM_FOLD_TH3_DEG;
+
+    if (pose->th1 > ARM_FOLD_TH1_MAX_DEG) return 0;
+
+    if (!Arm_Is_Servo_Angle_In_Range_With_Margin(pose->th0, pose->th1, pose->th2,
+                                                 pose->th3, ARM_FOLD_SAFE_MARGIN)) {
+        return 0;
+    }
+
+    *target = Arm_Forward_Target_From_Pose(pose);
+    return 1;
+}
+
+// 返回两个姿态之间最大的真实舵机角变化量。
+static float Arm_Max_Servo_Delta(const ArmJointPose_t *from, const ArmJointPose_t *to)
+{
+    float from_s0 = 0.0f;
+    float from_s1 = 0.0f;
+    float from_s2 = 0.0f;
+    float from_s3 = 0.0f;
+    float to_s0 = 0.0f;
+    float to_s1 = 0.0f;
+    float to_s2 = 0.0f;
+    float to_s3 = 0.0f;
+    float max_delta = 0.0f;
+
+    if (from == NULL || to == NULL) return 0.0f;
+
+    Arm_Map_To_Servo_Angles(from->th0, from->th1, from->th2, from->th3,
+                            &from_s0, &from_s1, &from_s2, &from_s3);
+    Arm_Map_To_Servo_Angles(to->th0, to->th1, to->th2, to->th3,
+                            &to_s0, &to_s1, &to_s2, &to_s3);
+
+    max_delta = Arm_Max_Float(max_delta, Arm_Abs_Float(to_s0 - from_s0));
+    max_delta = Arm_Max_Float(max_delta, Arm_Abs_Float(to_s1 - from_s1));
+    max_delta = Arm_Max_Float(max_delta, Arm_Abs_Float(to_s2 - from_s2));
+    max_delta = Arm_Max_Float(max_delta, Arm_Abs_Float(to_s3 - from_s3));
+    return max_delta;
+}
+
+// 根据舵机速度估算一个阶段何时可认为完成。
+static uint32_t Arm_Estimate_Phase_Wait_Ms(const ArmJointPose_t *from, const ArmJointPose_t *to)
+{
+    float max_delta = Arm_Max_Servo_Delta(from, to);
+    uint32_t wait_ms = (uint32_t)((max_delta * 10000.0f) / (float)ARM_SERVO_MOVE_SPEED);
+
+    wait_ms += ARM_PHASE_SETTLE_EXTRA_MS;
+    return Arm_Clamp_U32(wait_ms, ARM_PHASE_MIN_INTERVAL_MS, ARM_PHASE_MAX_INTERVAL_MS);
+}
+
+// 判断最终目标是否过于靠近车前方竖直细杆。
+static uint8_t Arm_Target_Too_Close_To_Front_Rod(const ArmWorldTarget_t *target)
+{
+    if (target == NULL) return 1;
+
+    if (Arm_Abs_Float(target->x) <= ARM_FRONT_ROD_RADIUS_CM &&
+        Arm_Abs_Float(target->y - ARM_FRONT_ROD_Y_CM) <= ARM_FRONT_ROD_RADIUS_CM) {
+        return 1;
+    }
+    return 0;
+}
+
+// 向四个舵机发送一次同步或回退模式的速度目标命令。
+static void Arm_Send_Servo_Targets(float actual_s0, float actual_s1, float actual_s2, float actual_s3,
+                                   uint16_t move_speed)
+{
+    uint16_t accel_time = ARM_SERVO_ACCEL_TIME_MS;
+    uint16_t decel_time = ARM_SERVO_DECEL_TIME_MS;
+    uint16_t power = ARM_SERVO_POWER_LIMIT;
+
+#if ARM_USE_SYNC_SERVO_SPEED_CMD
+    Sync_Adv_Single_Speed_t single_targets[3] = {
+        {S0_ID, (int16_t)(actual_s0 * 10.0f), move_speed, accel_time, decel_time, power},
+        {S2_ID, (int16_t)(actual_s2 * 10.0f), move_speed, accel_time, decel_time, power},
+        {S3_ID, (int16_t)(actual_s3 * 10.0f), move_speed, accel_time, decel_time, power}
+    };
+    Sync_Adv_Multi_Speed_t multi_targets[1] = {
+        {S1_ID, (int32_t)(actual_s1 * 10.0f), move_speed, accel_time, decel_time, power}
     };
 
-    printf("\r\n[ARM TEST] Starting standalone routine...\r\n");
-
-    for (int i = 0; i < 4; i++) {
-        float target_th0 = test_points[i][0];
-        float target_x   = test_points[i][1];
-        float target_y   = test_points[i][2];
-        float target_th3 = test_points[i][3];
-        
-        printf("[ARM TEST] Executing Point %d: (th0=%.1f, X=%.1f, Y=%.1f)\r\n", i+1, target_th0, target_x, target_y);
-        
-        if (Arm_Inverse_Kinematics(target_x, target_y, &v_th1, &v_th2)) {
-            // 解算成功，执行物理动作
-            Arm_Execute_Move(target_th0, v_th1, v_th2, target_th3);
-        } else {
-            // 这几个测试点都是在安全范围内的，如果报错说明参数宏定义填错了
-            printf("[ARM TEST] Error: Point %d out of reach!\r\n", i+1);
-        }
-        
-        // 等待动作完成 (舵机运动1000ms，这里延时2000ms让它稳定)
-        HAL_Delay(2000); 
-    }
-    
-    printf("[ARM TEST] Routine finished.\r\n");
+    Servo_Sync_Adv_Multi_Turn_Speed(multi_targets, 1);
+    Servo_Sync_Adv_Single_Turn_Speed(single_targets, 3);
+#else
+    Servo_Advanced_Single_Turn_Speed(S0_ID, (int16_t)(actual_s0 * 10.0f), move_speed, accel_time, decel_time, power);
+    Servo_Advanced_Multi_Turn_Speed( S1_ID, (int32_t)(actual_s1 * 10.0f), move_speed, accel_time, decel_time, power);
+    Servo_Advanced_Single_Turn_Speed(S2_ID, (int16_t)(actual_s2 * 10.0f), move_speed, accel_time, decel_time, power);
+    Servo_Advanced_Single_Turn_Speed(S3_ID, (int16_t)(actual_s3 * 10.0f), move_speed, accel_time, decel_time, power);
+#endif
 }
 
-// 机械臂指令轮询
-void Arm_Task_Loop(void) {
-    char tx_buf[128]; // 用于向上位机发送字符串的缓冲区
+// 在竖直平面内求解二连杆腕点逆解。
+static uint8_t Arm_Wrist_Inverse_Kinematics(float plane_x, float plane_z, float *out_th1, float *out_th2)
+{
+    float l_eff = sqrtf(ARM_L1 * ARM_L1 + ARM_C * ARM_C);
+    float phi = atan2f(ARM_C, ARM_L1);
+    float dx = plane_x - ARM_R;
+    float dz = plane_z - (ARM_H0 + ARM_H1);
+    float d = sqrtf(dx * dx + dz * dz);
+    float cos_beta = 0.0f;
+    float beta = 0.0f;
+    float alpha = 0.0f;
+    float cos_gamma = 0.0f;
+    float gamma = 0.0f;
 
-    // 检查是否有新的上位机指令帧
-    if (g_HostCmd.new_cmd_flag == 1) {
-        g_HostCmd.new_cmd_flag = 0; 
-        
-        // 处理急停指令
-        if (g_HostCmd.run_flag == 0) {
-            Servo_Stop(S0_ID, SERVO_STOP_MODE_HOLD, 0);
-            Servo_Stop(S1_ID, SERVO_STOP_MODE_HOLD, 0);
-            Servo_Stop(S2_ID, SERVO_STOP_MODE_HOLD, 0);
-            Servo_Stop(S3_ID, SERVO_STOP_MODE_HOLD, 0);
-            
-            // 向上位机报告已急停
-            sprintf(tx_buf, "STOPPED: All servos locked.\r\n");
-            CN_UART_write_string_FIFO(CN_UART_3, (uint8_t*)tx_buf);
-        } 
-        // 处理运动指令
-        else {
-            float v_th1 = 0.0f, v_th2 = 0.0f;
-            
-            // 实时解算
-            if (Arm_Inverse_Kinematics(g_HostCmd.x, g_HostCmd.y, &v_th1, &v_th2)) {
-                // 解算成功 执行物理运动
-                Arm_Execute_Move(g_HostCmd.th0, v_th1, v_th2, g_HostCmd.th3);
-                
-                // 向上位机返回成功及四个虚拟角度
-                sprintf(tx_buf, "SUCCESS: th0=%.1f, th1=%.1f, th2=%.1f, th3=%.1f\r\n", 
-                        g_HostCmd.th0, v_th1, v_th2, g_HostCmd.th3);
-                CN_UART_write_string_FIFO(CN_UART_3, (uint8_t*)tx_buf);
-            } 
-            else {
-                // 解算失败 保持原位并报告错误
-                sprintf(tx_buf, "ERROR: Target (X:%.1f, Y:%.1f) out of reach!\r\n", 
-                        g_HostCmd.x, g_HostCmd.y);
-                CN_UART_write_string_FIFO(CN_UART_3, (uint8_t*)tx_buf);
+    if (d < 0.001f) return 0;
+    if (d > (l_eff + ARM_L2) || d < fabsf(l_eff - ARM_L2)) return 0;
+
+    cos_beta = (l_eff * l_eff + d * d - ARM_L2 * ARM_L2) / (2.0f * l_eff * d);
+    beta = acosf(fmaxf(-1.0f, fminf(1.0f, cos_beta)));
+    alpha = atan2f(dz, dx);
+
+    cos_gamma = (l_eff * l_eff + ARM_L2 * ARM_L2 - d * d) / (2.0f * l_eff * ARM_L2);
+    gamma = acosf(fmaxf(-1.0f, fminf(1.0f, cos_gamma)));
+
+    *out_th1 = ((alpha + beta) - phi) * 180.0f / M_PI;
+    *out_th2 = (gamma - M_PI + phi) * 180.0f / M_PI;
+    return 1;
+}
+
+// 求解已转换到竖直平面内的单个目标点。
+static uint8_t Arm_Plane_Inverse_Kinematics(float base_th0, float plane_x, float plane_z, float suc_dir_deg,
+                                            float *out_th0, float *out_th1, float *out_th2, float *out_th3)
+{
+    float target_th0 = Arm_Normalize_Deg(base_th0);
+    float dir_rad = suc_dir_deg * M_PI / 180.0f;
+    float suc_dx = sinf(dir_rad);
+    float suc_dz = -cosf(dir_rad);
+    float wrist_x = plane_x - ARM_L3 * suc_dx;
+    float wrist_z = plane_z - ARM_L3 * suc_dz;
+    float target_th1 = 0.0f;
+    float target_th2 = 0.0f;
+    float suc_std_dir_deg = 0.0f;
+    float target_th3 = 0.0f;
+
+    if (!Arm_Wrist_Inverse_Kinematics(wrist_x, wrist_z, &target_th1, &target_th2)) return 0;
+
+    suc_std_dir_deg = Arm_Normalize_Deg(suc_dir_deg - 90.0f);
+    target_th3 = Arm_Normalize_Deg(suc_std_dir_deg - target_th1 - target_th2);
+
+    if (!Arm_Is_Servo_Angle_In_Range(target_th0, target_th1, target_th2, target_th3)) return 0;
+
+    *out_th0 = target_th0;
+    *out_th1 = target_th1;
+    *out_th2 = target_th2;
+    *out_th3 = target_th3;
+    return 1;
+}
+
+// 将世界坐标系下的吸盘末端目标解算为虚拟关节角。
+uint8_t Arm_Inverse_Kinematics(float world_x, float world_y, float world_z, float suc_dir_deg,
+                               float *out_th0, float *out_th1, float *out_th2, float *out_th3)
+{
+    float plane_x = sqrtf(world_x * world_x + world_y * world_y);
+    float base_th0 = Arm_World_To_Base_Angle(world_x, world_y);
+
+    return Arm_Plane_Inverse_Kinematics(base_th0, plane_x, world_z, suc_dir_deg,
+                                        out_th0, out_th1, out_th2, out_th3);
+}
+
+// 将世界目标结构体解算为关节姿态结构体。
+static uint8_t Arm_Solve_Target(const ArmWorldTarget_t *target, ArmJointPose_t *pose)
+{
+    if (target == NULL || pose == NULL) return 0;
+
+    return Arm_Inverse_Kinematics(target->x, target->y, target->z, target->dir,
+                                  &pose->th0, &pose->th1, &pose->th2, &pose->th3);
+}
+
+// 使用当前速度命令配置执行一个虚拟姿态。
+static uint8_t Arm_Execute_Pose(const ArmJointPose_t *pose)
+{
+    float actual_s0 = 0.0f;
+    float actual_s1 = 0.0f;
+    float actual_s2 = 0.0f;
+    float actual_s3 = 0.0f;
+
+    if (pose == NULL) return 0;
+    if (!Arm_Is_Servo_Angle_In_Range(pose->th0, pose->th1, pose->th2, pose->th3)) return 0;
+
+    Arm_Map_To_Servo_Angles(pose->th0, pose->th1, pose->th2, pose->th3,
+                            &actual_s0, &actual_s1, &actual_s2, &actual_s3);
+    Arm_Send_Servo_Targets(actual_s0, actual_s1, actual_s2, actual_s3, ARM_SERVO_MOVE_SPEED);
+    return 1;
+}
+
+// 保留给现有测试和外部调用的直接执行接口。
+void Arm_Execute_Move(float v_th0, float v_th1, float v_th2, float v_th3)
+{
+    ArmJointPose_t pose = {v_th0, v_th1, v_th2, v_th3};
+
+    if (!Arm_Execute_Pose(&pose)) {
+        CN_UART_write_string_FIFO(ARM_HOST_UART, (uint8_t*)"ERROR: Refuse to execute angle-limited move!\r\n");
+    }
+}
+
+// 记录非阻塞规划器追踪的当前目标和关节姿态。
+static void Arm_Record_Current_State(const ArmWorldTarget_t *target, const ArmJointPose_t *pose)
+{
+    if (target != NULL) g_arm_current_target = *target;
+    if (pose != NULL) g_arm_current_joint = *pose;
+    g_arm_current_valid = 1;
+}
+
+// 停止并锁持四个总线舵机。
+static void Arm_Stop_All_Servos(void)
+{
+    Servo_Stop(S0_ID, SERVO_STOP_MODE_HOLD, 0);
+    Servo_Stop(S1_ID, SERVO_STOP_MODE_HOLD, 0);
+    Servo_Stop(S2_ID, SERVO_STOP_MODE_HOLD, 0);
+    Servo_Stop(S3_ID, SERVO_STOP_MODE_HOLD, 0);
+}
+
+// 清空当前非阻塞运动计划。
+static void Arm_Clear_Plan(void)
+{
+    memset(&g_arm_plan, 0, sizeof(g_arm_plan));
+}
+
+// 向运动计划中追加一个阶段。
+static uint8_t Arm_Add_Phase(const ArmWorldTarget_t *target, const ArmJointPose_t *pose,
+                             const ArmJointPose_t *from_pose, const char *name)
+{
+    ArmPlanPhase_t *phase = NULL;
+
+    if (target == NULL || pose == NULL || from_pose == NULL) return 0;
+    if (g_arm_plan.phase_count >= ARM_PLAN_PHASE_MAX) {
+        g_arm_last_error = "phase buffer overflow";
+        return 0;
+    }
+
+    phase = &g_arm_plan.phases[g_arm_plan.phase_count++];
+    phase->target = *target;
+    phase->pose = *pose;
+    phase->wait_ms = Arm_Estimate_Phase_Wait_Ms(from_pose, pose);
+    phase->name = name;
+    return 1;
+}
+
+// 构建轻量运动计划：同侧直达，跨 x=0 时收敛、转平面、展开。
+static uint8_t Arm_Build_Motion_Plan(const ArmWorldTarget_t *target)
+{
+    ArmJointPose_t final_pose = {0.0f, 0.0f, 0.0f, 0.0f};
+    ArmWorldTarget_t fold_current_target;
+    ArmJointPose_t fold_current_pose;
+    ArmWorldTarget_t fold_target_target;
+    ArmJointPose_t fold_target_pose;
+    ArmJointPose_t last_pose;
+    float current_base = 0.0f;
+    float target_base = 0.0f;
+    uint8_t cross_x_zero = 0U;
+
+    if (target == NULL) return 0;
+    Arm_Clear_Plan();
+
+    if (Arm_Target_Too_Close_To_Front_Rod(target)) {
+        g_arm_last_error = "target too close to front rod";
+        return 0;
+    }
+
+    if (!Arm_Solve_Target(target, &final_pose)) {
+        g_arm_last_error = "target unreachable or angle-limited";
+        return 0;
+    }
+
+    current_base = g_arm_current_valid ? g_arm_current_joint.th0 : final_pose.th0;
+    target_base = final_pose.th0;
+    last_pose = g_arm_current_valid ? g_arm_current_joint : final_pose;
+    cross_x_zero = Arm_Target_Crosses_X_Zero(target);
+
+    if (cross_x_zero) {
+        if (!Arm_Build_Folded_Pose(current_base, &fold_current_target, &fold_current_pose)) {
+            g_arm_last_error = "current-plane fold pose invalid";
+            return 0;
+        }
+
+        if (!Arm_Build_Folded_Pose(target_base, &fold_target_target, &fold_target_pose)) {
+            g_arm_last_error = "target-plane fold pose invalid";
+            return 0;
+        }
+
+        if (Arm_Max_Servo_Delta(&last_pose, &fold_current_pose) > 0.5f) {
+            if (!Arm_Add_Phase(&fold_current_target, &fold_current_pose, &last_pose, "fold")) return 0;
+            last_pose = fold_current_pose;
+        }
+
+        if (Arm_Abs_Float(fold_target_pose.th0 - fold_current_pose.th0) > ARM_PLANE_ROTATE_SKIP_DEG) {
+            if (!Arm_Add_Phase(&fold_target_target, &fold_target_pose, &last_pose, "rotate")) return 0;
+            last_pose = fold_target_pose;
+        }
+    }
+
+    if (!g_arm_current_valid || Arm_Max_Servo_Delta(&last_pose, &final_pose) > 0.5f) {
+        if (!Arm_Add_Phase(target, &final_pose, &last_pose, cross_x_zero ? "expand" : "direct")) return 0;
+    }
+
+    g_arm_plan.final_target = *target;
+    g_arm_plan.final_pose = final_pose;
+    return 1;
+}
+
+// 启动已构建运动计划的第一个阶段。
+static uint8_t Arm_Start_Plan(void)
+{
+    ArmPlanPhase_t *phase = NULL;
+
+    if (g_arm_plan.phase_count == 0U) {
+        Arm_Record_Current_State(&g_arm_plan.final_target, &g_arm_plan.final_pose);
+        return 1;
+    }
+
+    g_arm_plan.active = 1;
+    g_arm_plan.phase_index = 0;
+    phase = &g_arm_plan.phases[0];
+
+    if (!Arm_Execute_Pose(&phase->pose)) {
+        Arm_Clear_Plan();
+        g_arm_last_error = "failed to start first phase";
+        return 0;
+    }
+
+    g_arm_plan.phase_start_tick = HAL_GetTick();
+    return 1;
+}
+
+// 为新的目标命令构建并启动非阻塞运动计划。
+static uint8_t Arm_Start_Motion_To_Target(const ArmWorldTarget_t *target)
+{
+    if (g_arm_plan.active) {
+        g_arm_last_error = "arm planner busy";
+        return 0;
+    }
+
+    if (!Arm_Build_Motion_Plan(target)) return 0;
+    return Arm_Start_Plan();
+}
+
+// 根据系统 tick 推进非阻塞运动计划。
+static void Arm_Update_Plan(void)
+{
+    ArmPlanPhase_t *phase = NULL;
+
+    if (!g_arm_plan.active) return;
+
+    phase = &g_arm_plan.phases[g_arm_plan.phase_index];
+    if ((uint32_t)(HAL_GetTick() - g_arm_plan.phase_start_tick) < phase->wait_ms) return;
+
+    Arm_Record_Current_State(&phase->target, &phase->pose);
+    g_arm_plan.phase_index++;
+
+    if (g_arm_plan.phase_index >= g_arm_plan.phase_count) {
+        char tx_buf[192];
+        Arm_Record_Current_State(&g_arm_plan.final_target, &g_arm_plan.final_pose);
+        sprintf(tx_buf, "SUCCESS: X=%.1f, Y=%.1f, Z=%.1f, Dir=%.1f -> th0=%.1f, th1=%.1f, th2=%.1f, th3=%.1f, phases=%u\r\n",
+                g_arm_plan.final_target.x, g_arm_plan.final_target.y, g_arm_plan.final_target.z,
+                g_arm_plan.final_target.dir, g_arm_plan.final_pose.th0, g_arm_plan.final_pose.th1,
+                g_arm_plan.final_pose.th2, g_arm_plan.final_pose.th3, g_arm_plan.phase_count);
+        Arm_Clear_Plan();
+        CN_UART_write_string_FIFO(ARM_HOST_UART, (uint8_t*)tx_buf);
+        return;
+    }
+
+    phase = &g_arm_plan.phases[g_arm_plan.phase_index];
+    if (!Arm_Execute_Pose(&phase->pose)) {
+        Arm_Stop_All_Servos();
+        Arm_Clear_Plan();
+        CN_UART_write_string_FIFO(ARM_HOST_UART, (uint8_t*)"ERROR: Failed to execute next phase!\r\n");
+        return;
+    }
+
+    g_arm_plan.phase_start_tick = HAL_GetTick();
+}
+
+// 初始化总线舵机通信，并移动到固定收敛初始姿态。
+void Arm_Init(void)
+{
+    ArmWorldTarget_t home_target;
+    ArmJointPose_t home_pose;
+
+    Servo_Init();
+    Arm_Clear_Plan();
+
+    if (Arm_Build_Folded_Pose(0.0f, &home_target, &home_pose)) {
+        Arm_Execute_Pose(&home_pose);
+        Arm_Record_Current_State(&home_target, &home_pose);
+    } else {
+        CN_UART_write_string_FIFO(ARM_HOST_UART, (uint8_t*)"ERROR: Arm folded home pose too close to limit!\r\n");
+    }
+}
+
+// 打印固定测试点的逆解结果，不移动舵机也不阻塞。
+void Arm_Standalone_Test(void)
+{
+    float v_th0 = 0.0f;
+    float v_th1 = 0.0f;
+    float v_th2 = 0.0f;
+    float v_th3 = 0.0f;
+    float test_points[4][4] = {
+        {  0.0f, 23.0f, 45.0f, 115.0f},
+        { 16.3f, 16.3f, 45.0f, 115.0f},
+        {-15.6f, 15.6f, 46.0f, 118.0f},
+        { 35.0f,  0.0f, 35.0f,  94.0f}
+    };
+
+    printf("\r\n[ARM TEST] IK-only routine...\r\n");
+
+    for (int i = 0; i < 4; i++) {
+        if (Arm_Inverse_Kinematics(test_points[i][0], test_points[i][1],
+                                   test_points[i][2], test_points[i][3],
+                                   &v_th0, &v_th1, &v_th2, &v_th3)) {
+            printf("[ARM TEST] P%d -> th0=%.1f th1=%.1f th2=%.1f th3=%.1f\r\n",
+                   i + 1, v_th0, v_th1, v_th2, v_th3);
+        } else {
+            printf("[ARM TEST] P%d unreachable\r\n", i + 1);
+        }
+    }
+}
+
+// 机械臂主任务轮询函数，需要在 MCU 主循环中反复调用。
+void Arm_Task_Loop(void)
+{
+    char tx_buf[192];
+
+    if (g_HostCmd.new_cmd_flag == 1 && g_HostCmd.run_flag == 0) {
+        g_HostCmd.new_cmd_flag = 0;
+        Arm_Stop_All_Servos();
+        Arm_Clear_Plan();
+        CN_UART_write_string_FIFO(ARM_HOST_UART, (uint8_t*)"STOPPED: All servos locked.\r\n");
+        return;
+    }
+
+    Arm_Update_Plan();
+
+    if (g_HostCmd.new_cmd_flag != 1) return;
+    g_HostCmd.new_cmd_flag = 0;
+
+    {
+        ArmWorldTarget_t target = {
+            g_HostCmd.world_x,
+            g_HostCmd.world_y,
+            g_HostCmd.world_z,
+            g_HostCmd.suc_dir_deg
+        };
+
+        g_arm_last_error = "OK";
+        if (Arm_Start_Motion_To_Target(&target)) {
+            if (g_arm_plan.active) {
+                sprintf(tx_buf, "ACCEPTED: X=%.1f, Y=%.1f, Z=%.1f, Dir=%.1f, phases=%u\r\n",
+                        target.x, target.y, target.z, target.dir, g_arm_plan.phase_count);
+            } else {
+                sprintf(tx_buf, "SUCCESS: X=%.1f, Y=%.1f, Z=%.1f, Dir=%.1f -> th0=%.1f, th1=%.1f, th2=%.1f, th3=%.1f, phases=0\r\n",
+                        target.x, target.y, target.z, target.dir, g_arm_current_joint.th0,
+                        g_arm_current_joint.th1, g_arm_current_joint.th2, g_arm_current_joint.th3);
             }
+            CN_UART_write_string_FIFO(ARM_HOST_UART, (uint8_t*)tx_buf);
+        } else {
+            sprintf(tx_buf, "ERROR: Target (X:%.1f, Y:%.1f, Z:%.1f, Dir:%.1f) rejected: %s\r\n",
+                    target.x, target.y, target.z, target.dir, g_arm_last_error);
+            CN_UART_write_string_FIFO(ARM_HOST_UART, (uint8_t*)tx_buf);
         }
     }
 }
