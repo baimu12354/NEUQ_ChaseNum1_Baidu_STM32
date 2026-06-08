@@ -72,9 +72,9 @@ HostCmd_t g_HostCmd;
 // 3 号舵机物理零点偏置，单位 deg。
 #define S3_OFFSET   -95.0f       // -95
 // 3 号舵机物理最小限位，单位 deg。
-#define S3_MIN      -190.0f
+#define S3_MIN      -230.0f
 // 3 号舵机物理最大限位，放开到正向以支持吸盘竖直向下，单位 deg。
-#define S3_MAX      10.0f
+#define S3_MAX      40.0f
 
 // 置 1 使用速度型同步命令；置 0 回退为逐个舵机速度命令。
 #define ARM_USE_SYNC_SERVO_SPEED_CMD   0
@@ -91,14 +91,13 @@ HostCmd_t g_HostCmd;
 
 // 判断目标是否跨过 x=0 平面时使用的世界 X 死区，单位 cm。
 #define ARM_X_SIDE_EPS_CM              1.0f
-// 收敛姿态中 1 号舵机的虚拟角，保持保守角度避免初始化越位，单位 deg。
-#define ARM_FOLD_TH1_DEG               120.0f
-// 收敛姿态允许的 1 号舵机虚拟角上限，防止初始化姿态超过实物机械行程，单位 deg。
-#define ARM_FOLD_TH1_MAX_DEG           150.0f
-// 收敛姿态中 2 号舵机的虚拟角，负值表示第二段机械臂向第一段回折，单位 deg。
-#define ARM_FOLD_TH2_DEG               -120.0f
-// 收敛姿态中 3 号舵机的虚拟角，使 th1+th2+th3=-90deg，吸盘末端竖直向下。
-#define ARM_FOLD_TH3_DEG               -90.0f
+// 收敛姿态在当前云台竖直平面内的深度坐标，单位 cm；数值越小，折叠姿态越靠近云台。
+#define ARM_FOLD_PLANE_DEPTH_CM        15.0f
+// 收敛姿态的吸盘末端高度坐标，单位 cm；该高度需高于禁区上边界。
+#define ARM_FOLD_PLANE_Z_CM            32.0f
+// 收敛姿态的吸盘方向，单位 deg；0deg 表示吸盘末端竖直向下。
+#define ARM_FOLD_SUCKER_DIR_DEG        0.0f
+//+调整上面三个宏时必须保证逆解后的舵机角能通过 ARM_FOLD_SAFE_MARGIN，否则规划器会拒绝折叠动作。
 // 默认休息姿态云台虚拟角，单位 deg。
 #define ARM_DEFAULT_REST_BASE_DEG      90.0f
 // 初始化是否走规划器回到默认休息姿态；1=先收敛再转平面再休息，0=直接下发默认休息姿态。
@@ -145,6 +144,8 @@ HostCmd_t g_HostCmd;
 #define ARM_FORBID_X_HALF_FAR_CM       90.0f
 //+梯形禁区 Z 上边界，单位 cm，使用严格不等式 z<20。
 #define ARM_FORBID_Z_MAX_CM            20.0f
+//+云台角度禁区额外余量，单位 deg；目标云台角落入禁区方向时先收敛再展开。
+#define ARM_FORBID_BASE_MARGIN_DEG     0.0f
 
 typedef struct {
     float x; 
@@ -179,6 +180,7 @@ typedef struct {
 } ArmMotionPlan_t;
 
 static uint8_t Arm_Target_In_Forbidden_Zone(const ArmWorldTarget_t *target);
+static uint8_t Arm_Base_Angle_In_Forbidden_Direction(float base_th0);
 
 static ArmWorldTarget_t g_arm_current_target = {0.0f, 0.0f, 0.0f, 90.0f};
 static ArmJointPose_t g_arm_current_joint = {0.0f, 0.0f, 0.0f, 0.0f};
@@ -290,6 +292,24 @@ static uint8_t Arm_Target_Crosses_X_Zero(const ArmWorldTarget_t *target)
     return (current_side != 0 && target_side != 0 && current_side != target_side) ? 1U : 0U;
 }
 
+//+根据梯形禁区水平投影计算云台禁区半角，单位 deg。
+static float Arm_Forbidden_Base_Half_Angle(void)
+{
+    float near_angle = atan2f(ARM_FORBID_X_HALF_NEAR_CM, ARM_FORBID_Y_NEAR_CM) * 180.0f / M_PI;
+    float far_angle = atan2f(ARM_FORBID_X_HALF_FAR_CM, ARM_FORBID_Y_FAR_CM) * 180.0f / M_PI;
+
+    return Arm_Max_Float(near_angle, far_angle) + ARM_FORBID_BASE_MARGIN_DEG;
+}
+
+//+判断目标云台角是否指向禁区水平投影；指向禁区时需要先收敛再转平面。
+static uint8_t Arm_Base_Angle_In_Forbidden_Direction(float base_th0)
+{
+    float half_angle = Arm_Forbidden_Base_Half_Angle();
+    float base_abs = Arm_Abs_Float(Arm_Normalize_Deg(base_th0));
+
+    return (base_abs <= half_angle) ? 1U : 0U;
+}
+
 // 根据一组虚拟关节角正解出吸盘末端的世界坐标记录。
 static ArmWorldTarget_t Arm_Forward_Target_From_Pose(const ArmJointPose_t *pose)
 {
@@ -360,28 +380,6 @@ static uint8_t Arm_Is_Servo_Angle_In_Range_With_Margin(float v_th0, float v_th1,
 static uint8_t Arm_Is_Servo_Angle_In_Range(float v_th0, float v_th1, float v_th2, float v_th3)
 {
     return Arm_Is_Servo_Angle_In_Range_With_Margin(v_th0, v_th1, v_th2, v_th3, 0.0f);
-}
-
-// 为指定云台平面生成固定收敛姿态。
-static uint8_t Arm_Build_Folded_Pose(float base_th0, ArmWorldTarget_t *target, ArmJointPose_t *pose)
-{
-    if (target == NULL || pose == NULL) return 0;
-
-    pose->th0 = Arm_Normalize_Deg(base_th0);
-    pose->th1 = ARM_FOLD_TH1_DEG;
-    pose->th2 = ARM_FOLD_TH2_DEG;
-    pose->th3 = ARM_FOLD_TH3_DEG;
-
-    if (pose->th1 > ARM_FOLD_TH1_MAX_DEG) return 0;
-
-    if (!Arm_Is_Servo_Angle_In_Range_With_Margin(pose->th0, pose->th1, pose->th2,
-                                                 pose->th3, ARM_FOLD_SAFE_MARGIN)) {
-        return 0;
-    }
-
-    *target = Arm_Forward_Target_From_Pose(pose);
-    if (Arm_Target_In_Forbidden_Zone(target)) return 0;
-    return 1;
 }
 
 // 为指定云台平面生成默认休息姿态。
@@ -569,6 +567,32 @@ static uint8_t Arm_Plane_Inverse_Kinematics(float base_th0, float plane_x, float
     return 1;
 }
 
+// 为指定云台平面生成收敛姿态；收敛点由竖直平面内坐标宏定义，方便现场直接调节。
+static uint8_t Arm_Build_Folded_Pose(float base_th0, ArmWorldTarget_t *target, ArmJointPose_t *pose)
+{
+    if (target == NULL || pose == NULL) return 0;
+
+    if (!Arm_Plane_Inverse_Kinematics(base_th0,
+                                      ARM_FOLD_PLANE_DEPTH_CM,
+                                      ARM_FOLD_PLANE_Z_CM,
+                                      ARM_FOLD_SUCKER_DIR_DEG,
+                                      &pose->th0,
+                                      &pose->th1,
+                                      &pose->th2,
+                                      &pose->th3)) {
+        return 0;
+    }
+
+    if (!Arm_Is_Servo_Angle_In_Range_With_Margin(pose->th0, pose->th1, pose->th2,
+                                                 pose->th3, ARM_FOLD_SAFE_MARGIN)) {
+        return 0;
+    }
+
+    *target = Arm_Forward_Target_From_Pose(pose);
+    if (Arm_Target_In_Forbidden_Zone(target)) return 0;
+    return 1;
+}
+
 // 将世界坐标系下的吸盘末端目标解算为虚拟关节角。
 uint8_t Arm_Inverse_Kinematics(float world_x, float world_y, float world_z, float suc_dir_deg,
                                float *out_th0, float *out_th1, float *out_th2, float *out_th3)
@@ -662,7 +686,7 @@ static uint8_t Arm_Add_Phase(const ArmWorldTarget_t *target, const ArmJointPose_
     return 1;
 }
 
-// 构建轻量运动计划：同侧直达，跨 x=0 时收敛、转平面、展开。
+// 构建轻量运动计划：普通目标直达；跨 x=0 或目标云台角指向禁区时，先收敛、转平面、再展开。
 static uint8_t Arm_Build_Motion_Plan(const ArmWorldTarget_t *target)
 {
     ArmJointPose_t final_pose = {0.0f, 0.0f, 0.0f, 0.0f};
@@ -674,6 +698,8 @@ static uint8_t Arm_Build_Motion_Plan(const ArmWorldTarget_t *target)
     float current_base = 0.0f;
     float target_base = 0.0f;
     uint8_t cross_x_zero = 0U;
+    uint8_t target_base_in_forbid = 0U;
+    uint8_t need_fold_path = 0U;
 
     if (target == NULL) return 0;
     Arm_Clear_Plan();
@@ -698,8 +724,10 @@ static uint8_t Arm_Build_Motion_Plan(const ArmWorldTarget_t *target)
     target_base = final_pose.th0;
     last_pose = g_arm_current_valid ? g_arm_current_joint : final_pose;
     cross_x_zero = Arm_Target_Crosses_X_Zero(target);
+    target_base_in_forbid = Arm_Base_Angle_In_Forbidden_Direction(target_base);
+    need_fold_path = (cross_x_zero || target_base_in_forbid) ? 1U : 0U;
 
-    if (cross_x_zero) {
+    if (need_fold_path) {
         if (!Arm_Build_Folded_Pose(current_base, &fold_current_target, &fold_current_pose)) {
             g_arm_last_error = "current-plane fold pose invalid";
             return 0;
@@ -722,7 +750,7 @@ static uint8_t Arm_Build_Motion_Plan(const ArmWorldTarget_t *target)
     }
 
     if (!g_arm_current_valid || Arm_Max_Servo_Delta(&last_pose, &final_pose) > 0.5f) {
-        if (!Arm_Add_Phase(target, &final_pose, &last_pose, cross_x_zero ? "expand" : "direct")) return 0;
+        if (!Arm_Add_Phase(target, &final_pose, &last_pose, need_fold_path ? "expand" : "direct")) return 0;
     }
 
     g_arm_plan.final_target = *target;

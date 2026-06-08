@@ -8,8 +8,14 @@
 #define PUMP_AUTO_STOP_TIMEOUT_MS           30000U
 // 置 1 后，开启吸附频率检测；检测到吸附成功后只置位状态，不自动关闭气泵。
 #define PUMP_SUCK_DETECT_ENABLE             1U
-// 气压反馈频率阈值，单位 Hz；反馈频率大于等于该值时认为本次采样达到吸附条件。
-#define PUMP_SUCK_FREQ_THRESHOLD_HZ         53.00f           //  需要根据实际情况修改
+//+吸附检测方向枚举：反馈频率小于等于阈值时认为吸附。
+#define PUMP_SUCK_FREQ_LOW_IS_SUCKED        0U
+//+吸附检测方向枚举：反馈频率大于等于阈值时认为吸附。
+#define PUMP_SUCK_FREQ_HIGH_IS_SUCKED       1U
+//+吸附检测方向选择：LOW 表示频率小于等于阈值吸附，HIGH 表示频率大于等于阈值吸附。
+#define PUMP_SUCK_FREQ_COMPARE_MODE         PUMP_SUCK_FREQ_LOW_IS_SUCKED 
+//+气压反馈频率阈值，单位 Hz；具体比较方向由 PUMP_SUCK_FREQ_COMPARE_MODE 决定。
+#define PUMP_SUCK_FREQ_THRESHOLD_HZ         41.5f           //  需要根据实际情况修改
 // 吸附判断采样间隔，单位 ms；每隔该时间把当前频率写入一次判断缓冲区。
 #define PUMP_SUCK_CHECK_INTERVAL_MS         20U             
 // 吸附判断缓冲区长度；数值越大，判断越稳，但响应越慢。
@@ -34,6 +40,11 @@
 #define PUMP_FREQ_PERIOD_FILTER_SIZE        10U
 // 频率 IIR 低通滤波系数，范围 0~1；越小越平稳，越大响应越快。
 #define PUMP_FREQ_IIR_ALPHA                 0.2f
+
+#if (PUMP_SUCK_FREQ_COMPARE_MODE != PUMP_SUCK_FREQ_LOW_IS_SUCKED) && \
+    (PUMP_SUCK_FREQ_COMPARE_MODE != PUMP_SUCK_FREQ_HIGH_IS_SUCKED)
+#error "PUMP_SUCK_FREQ_COMPARE_MODE must be PUMP_SUCK_FREQ_LOW_IS_SUCKED or PUMP_SUCK_FREQ_HIGH_IS_SUCKED"
+#endif
 
 // 气泵全局句柄
 Pump_Handle_Struct Pump_Handle={0};
@@ -87,6 +98,7 @@ static void CN_Pump_Freq_Filter_Reset(void);
 static void CN_Pump_Freq_Filter_Push(uint32_t period_ticks);
 static float CN_Pump_Freq_Filter_Update(void);
 static void CN_Pump_Suck_Detect_Reset(void);
+static uint8_t CN_Pump_Is_Sucked_Freq(float freq_hz);
 static void CN_Pump_Suck_Detect_Update(float freq_hz);
 
 // 气泵 - 将占空比限制在定时器允许范围内
@@ -258,6 +270,16 @@ static void CN_Pump_Suck_Detect_Reset(void)
     Pump_Handle.SuckStrength = 0U;
 }
 
+//+气泵 - 根据宏定义选择吸附频率判定方向。
+static uint8_t CN_Pump_Is_Sucked_Freq(float freq_hz)
+{
+#if PUMP_SUCK_FREQ_COMPARE_MODE == PUMP_SUCK_FREQ_LOW_IS_SUCKED
+    return (freq_hz <= PUMP_SUCK_FREQ_THRESHOLD_HZ) ? 1U : 0U;
+#else
+    return (freq_hz >= PUMP_SUCK_FREQ_THRESHOLD_HZ) ? 1U : 0U;
+#endif
+}
+
 // 气泵 - 根据当前频率更新吸附判断结果
 static void CN_Pump_Suck_Detect_Update(float freq_hz)
 {
@@ -266,8 +288,7 @@ static void CN_Pump_Suck_Detect_Update(float freq_hz)
     uint8_t valid_count = 0U;
     uint8_t sucked_sample_count = 0U;
 
-    g_pump_suck_freq_buffer[g_pump_suck_freq_index] =
-        (freq_hz >= PUMP_SUCK_FREQ_THRESHOLD_HZ) ? 1U : 0U;
+    g_pump_suck_freq_buffer[g_pump_suck_freq_index] = CN_Pump_Is_Sucked_Freq(freq_hz);
 
     g_pump_suck_freq_index++;
     if (g_pump_suck_freq_index >= PUMP_SUCK_FREQ_FILTER_SIZE) {
