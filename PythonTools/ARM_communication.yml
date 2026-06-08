@@ -1,0 +1,65 @@
+# 上位机机械臂通信与调试参数清单
+# 说明：这些参数目前先集中列出，便于你决定哪些保留在 yml，哪些回收到代码内硬编码。
+
+serial:
+  baudrate: 115200
+  timeout_s: 0.1
+  read_sleep_s: 0.01
+  encoding: utf-8
+  print_rx_to_terminal: true
+  rx_print_prefix: "[MCU] "
+
+protocol:
+  header: [0x5A, 0xA5]
+  tail: [0x0D, 0x0A]
+  cmd_stop: 0x00
+  cmd_move: 0x01
+  cmd_fold: 0x02
+  move_payload_format: "<ffff"
+
+ui_defaults:
+  world_x_cm: 0.0
+  world_y_cm: 30.0
+  world_z_cm: 18.0
+  suc_dir_deg: 0.0
+
+arm_geometry:
+  h0_cm: 8.8
+  h1_cm: 6.5
+  r_cm: 3.0
+  l1_cm: 17.5
+  c_cm: 2.5
+  l2_cm: 20.5
+  suction_len_cm: 11.0
+
+front_rod:
+  enabled: true
+  x_cm: 0.0
+  y_cm: 30.0
+  radius_cm: 1.5
+
+planner_preview:
+  x_side_eps_cm: 1.0
+
+folded_pose:
+  default_base_deg: 90.0
+  th1_deg: 120.0
+  th2_deg: -145.0
+  th3_deg: 75.0
+
+servo_mapping:
+  s0_offset_deg: 5.0
+  s1_gear: 3.0
+  s1_offset_deg: -533.0
+  s2_offset_deg: -13.0
+  s3_offset_deg: -97.0
+
+servo_limits:
+  s0_min_deg: -180.0
+  s0_max_deg: 180.0
+  s1_min_deg: -533.0
+  s1_max_deg: 7.0
+  s2_min_deg: -90.0
+  s2_max_deg: 150.0
+  s3_min_deg: -100.0
+  s3_max_deg: 180.0

@@ -1,0 +1,163 @@
+# NANO 上位机通信配置。
+# 当前下位机实际启用 UART2 + NANO 协议；旧 Unified UART3 协议文件仍保留，但不是当前主链路。
+
+serial:
+  port: COM8
+  baudrate: 115200
+  timeout_s: 0.03
+  read_sleep_s: 0.01
+  print_rx_to_terminal: true
+  rx_print_prefix: "[MCU] "
+
+protocol:
+  header: [0xAA, 0x55]
+  tail: [0x0D, 0x0A]
+  version: 0x01
+  checksum: "sum(version, seq, module, cmd, len, payload) & 0xFF"
+  max_rx_payload_len: 32
+  max_tx_payload_len: 64
+
+modules:
+  system: 0x01
+  chassis: 0x02
+  arm: 0x03
+  pump: 0x04
+
+commands:
+  system:
+    hello: 0x01
+    reset: 0x02
+    estop: 0x03
+    get_status: 0x04
+  chassis:
+    run: 0x10
+    stop: 0x11
+    brake: 0x12
+    rotate_to: 0x13
+    translate_rel: 0x14
+    get_state: 0x15
+  arm:
+    target_xyz_dir: 0x20
+    fold_home: 0x21
+    stop_hold: 0x22
+    get_pose: 0x23
+  pump:
+    suck: 0x30
+    release: 0x31
+    get_state: 0x32
+
+responses:
+  ack: 0x80
+  nack: 0x81
+  status: 0x82
+  event: 0x83
+  arm_pose: 0x84
+  chassis_state: 0x85
+  pump_state: 0x86
+
+payload_formats:
+  chassis_run: "<fff"
+  chassis_rotate_to: "<ff"
+  chassis_translate_rel: "<fff"
+  arm_target_xyz_dir: "<ffff"
+  ack: "<BBBBB"
+  event: "<BBBBB"
+  status: "<BBBBBBBBIf"
+  chassis_state: "<BBfffff"
+  arm_pose: "<BBBBffffffff"
+  pump_state: "<BBBBfBB"
+
+states:
+  system: [INIT, RET, IDLE, ACTIVE, ESTOP, FAULT]
+  chassis: [IDLE, RUN, ROTATE, TRANSLATE, STOP, BRAKE, FAULT]
+  arm: [IDLE, MOVING, FOLDING, HOLD, REJECTED, FAULT]
+  pump: [IDLE, SUCKING, SUCKED, RELEASING, RELEASED, FAULT]
+  movement: [BREAKING, RUNNING, ROTATION, TRANSLATION]
+
+events:
+  0x01: SYS_READY
+  0x02: SYS_RESET_DONE
+  0x03: SYS_ESTOP
+  0x10: CHASSIS_ROTATE_DONE
+  0x11: CHASSIS_TRANSLATE_DONE
+  0x12: CHASSIS_TIMEOUT_STOP
+  0x20: ARM_DONE
+  0x21: ARM_FOLD_DONE
+  0x22: ARM_REJECTED
+  0x30: PUMP_SUCK_DONE
+  0x31: PUMP_RELEASE_DONE
+  0x32: PUMP_TIMEOUT_STOP
+
+errors:
+  0x00: OK
+  0x01: BAD_CMD
+  0x02: BAD_LEN
+  0x03: BAD_CHECK
+  0x04: BAD_STATE
+  0x05: BUSY
+  0x06: RANGE_LIMIT
+  0x07: FORBIDDEN_ZONE
+  0x08: TIMEOUT
+  0x09: DEVICE
+
+limits:
+  chassis:
+    run_vx_input_min: -100.0
+    run_vx_input_max: 100.0
+    run_vy_input_min: -100.0
+    run_vy_input_max: 100.0
+    run_wz_input_min: -100.0
+    run_wz_input_max: 100.0
+    run_vxy_internal_nonzero_min: 1.0
+    run_vxy_internal_max: 20.0
+    run_wz_internal_max: 200.0
+    rotate_angle_deg_min: null
+    rotate_angle_deg_max: null
+    rotate_wz_input_min: 1.0
+    rotate_wz_input_max: 100.0
+    rotate_wz_internal_min: 1.0
+    rotate_wz_internal_max: 10.0
+    translate_dx_cm_min: -1000.0
+    translate_dx_cm_max: 1000.0
+    translate_dy_cm_min: -1000.0
+    translate_dy_cm_max: 1000.0
+    translate_internal_distance_max: 50000.0
+    translate_speed_input_min: 1.0
+    translate_speed_input_max: 100.0
+    translate_speed_internal_min: 1.0
+    translate_speed_internal_max: 20.0
+    run_timeout_ms: 500
+  arm:
+    world_x_cm_min: null
+    world_x_cm_max: null
+    world_y_cm_min: null
+    world_y_cm_max: null
+    world_z_cm_min: null
+    world_z_cm_max: null
+    suction_dir_deg_min: 0.0
+    suction_dir_deg_max: 180.0
+  pump:
+    release_wait_ms: 500
+    auto_stop_timeout_ms: 30000
+
+defaults:
+  chassis:
+    run_vx: 0.0
+    run_vy: 0.0
+    run_wz: 0.0
+    rotate_angle_deg: 90.0
+    rotate_wz: 80.0
+    translate_dx_cm: 20.0
+    translate_dy_cm: 0.0
+    translate_speed: 80.0
+  arm:
+    world_x_cm: 20.0
+    world_y_cm: 0.0
+    world_z_cm: 25.0
+    suction_dir_deg: 0.0
+
+controller:
+  auto_start_reader: true
+  wait_timeout_s: 1.0
+  event_cache_len: 100
+  frame_cache_len: 100

@@ -6,9 +6,9 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-#define BUS_SERVO_UART CN_UART_7
+#define BUS_SERVO_UART CN_UART_3
 
-/* ---------------- 之前的发送宏定义保持不变 ---------------- */
+//-------------------------------- 协议指令 -------------------------------- //
 #define SERVO_CMD_PING                  0x01 // 通讯检测
 #define SERVO_CMD_SIMPLE_SINGLE_ANGLE   0x08 // 简易单圈角度控制
 #define SERVO_CMD_ADV_SINGLE_TIME       0x0b // 高级单圈角度控制 (基于时间)
@@ -36,7 +36,7 @@
 #define SERVO_ASYNC_ACTION_EXEC         0x00 // 执行
 #define SERVO_ASYNC_ACTION_CANCEL       0x01 // 取消
 
-/* ---------------- 接收状态机枚举 ---------------- */
+//-------------------------------- 状态机枚举 -------------------------------- //
 typedef enum {
     SERVO_RX_STATE_HEADER1 = 0,
     SERVO_RX_STATE_HEADER2,
@@ -46,7 +46,7 @@ typedef enum {
     SERVO_RX_STATE_CHECKSUM
 } Servo_Rx_State_e;
 
-/* ---------------- 舵机状态数据结构体 ---------------- */
+//-------------------------------- 舵机状态结构体 -------------------------------- //
 // 用于存放解析后的舵机数据，方便应用层直接读取
 typedef struct {
     uint8_t  is_online;     // 是否在线
@@ -61,6 +61,7 @@ typedef struct {
 
 extern Servo_Info_t g_ServoInfo[255]; // 假设最多支持255个ID的舵机信息记录
 
+//-------------------------------- 舵机指令发送 -------------------------------- //
 void Servo_Init(void);
 void Servo_Send_Packet(uint8_t cmd_id, uint8_t *content, uint8_t length);
 void Servo_Ping(uint8_t servo_id);
@@ -80,14 +81,13 @@ void Servo_Async_Execute(uint8_t action);
 void Servo_Read_Data(uint8_t servo_id, uint8_t data_id);
 void Servo_Monitor_Data(uint8_t servo_id);
 void Servo_Set_Origin(uint8_t servo_id, uint8_t reset_mode);
-void Servo_Custom_Config(uint8_t servo_id, uint8_t data_id, uint8_t *data_content, uint8_t content_len);
 
-/* ---------------- 接收与解析函数声明 ---------------- */
+//-------------------------------- 舵机指令接收与解析 -------------------------------- //
 void Servo_Receive_Byte(uint8_t byte);
 void Servo_Parse_Packet(uint8_t cmd_id, uint8_t length, uint8_t *content);
 
 
-/* ---------------- 同步指令专用的结构体定义 ---------------- */
+//---------------- 同步指令专用的结构体定义 ----------------//
 
 // 简易单圈角度控制 (0x08) 同步参数结构体
 typedef struct {
@@ -145,8 +145,8 @@ typedef struct {
     uint16_t power;
 } Sync_Adv_Multi_Speed_t;
 
-/* ---------------- 新增：同步指令高级封装函数声明 ---------------- */
-// 你只需传入结构体数组和舵机数量，底层自动拼包
+//--------------- 同步指令高级封装函数声明 ---------------- //
+// 传入结构体数组和舵机数量，底层自动拼包
 void Servo_Sync_Simple_Single_Turn(Sync_Simple_Single_t *targets, uint8_t count);
 void Servo_Sync_Adv_Single_Turn_Time(Sync_Adv_Single_Time_t *targets, uint8_t count);
 void Servo_Sync_Adv_Single_Turn_Speed(Sync_Adv_Single_Speed_t *targets, uint8_t count);

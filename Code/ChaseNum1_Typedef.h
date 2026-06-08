@@ -145,28 +145,28 @@ typedef struct{
 
 #pragma region MOVEMENT_TYPEDEF_REGION
 typedef enum{
-    Movement_Translation    =0x50,   
-    Movement_Rotation       =0x51, 
-    Movement_Set_speed      =0x60,
-    Movement_Set_angvel     =0x61,
-    Movement_Translation_Precise =0x52, //平移精确模式，要求在Translation_Tolerance_PRECISE范围内到位
-    Movement_Rotation_Precise     =0x53, //旋转精确模式，要求在Rotation_Tolerance_PRECISE范围内到位
+    Movement_Breaking = 0,   // 休息状态 0
+    Movement_Running,        // 运行状态 1
+    Movement_Rotation,       // 旋转状态 2
+    Movement_Translation     // 定点平移状态 3
 }Movement_type_ENUM;
 
 typedef struct{
     //定义俯视视角下，上方为车头，记车头方向为Y正方向，右方为X正方向，车正上方为Z正方向
     //用右手螺旋定义Z轴旋转方向，即俯视逆时针为正向旋转，顺时针为逆向旋转
     //单位为标准单位，即m、deg
-    float Car_X_movement;
-    float Car_Y_movement;
-    float Car_Z_rotation;
-
-    float Car_speed;
-    float Car_angvel;
+    float Car_X_movement;     // 在当前位置基础上的X轴增量
+    float Car_Y_movement;     // 在当前位置基础上的Y轴增量
+    float Car_translation_vel;   // 定向位移的速度
+    float Car_angle;      // 在当前角度基础上的角度增量  
+    float Car_X_vel;      // 车身的横向速度
+    float Car_Y_vel;      // 车身的纵向速度
+    float Car_angvel;     // 车身的角速度
 }Car_Movement_struct;
 
+
 typedef struct{
-    //单位：rad/s、m/s^2
+    //+单位：角速度 deg/s、加速度 m/s^2。
     float G_X;
     float G_Y;
     float G_Z;
@@ -392,6 +392,8 @@ typedef struct{
     uint8_t Pump_on;
     uint8_t IfSucked;
     uint32_t SuckStrength;
+    float FeedbackFreqHz;          // PE6 反馈信号频率，单位 Hz
+    uint32_t FeedbackPeriodTicks;  // PE6 反馈信号周期，单位 TIM15 计数 tick
 }Pump_Handle_Struct;
 #pragma endregion
 
@@ -436,6 +438,13 @@ typedef struct{
 
 #pragma endregion
 
+#pragma region MECARM_TYPEDEF_REGION
+// typedef struct {
+//     float x;
+//     float y;
+//     float z;
+//     uint8_t cmd;
+// } ArmTarget_struct;
 
 #pragma region TRIGGER_TYPEDEF_REGION
 typedef enum{

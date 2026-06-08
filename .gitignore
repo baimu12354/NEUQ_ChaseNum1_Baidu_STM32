@@ -1,0 +1,81 @@
+# 操作系统临时文件
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# 编辑器和 IDE 本地配置
+.idea/
+.vscode/
+*.code-workspace
+*.swp
+*.swo
+*~
+
+# EIDE / VS Code 本地运行缓存
+USER/.eide/log/
+USER/.eide.usr.ctx.json
+USER/.settings/
+
+# Keil uVision 用户界面和本地调试文件
+*.uvgui.*
+*.uvguix.*
+*.uvgui_*
+*.uvguix_*
+JLinkLog.txt
+JLinkSettings.ini
+USER/DebugConfig/
+
+# 编译输出目录
+OBJ/
+Objects/
+Listings/
+build/
+Build/
+bin/
+out/
+USER/build/
+USER/bin/
+USER/obj/
+USER/out/
+
+# ARMCC / Keil / 嵌入式编译中间文件
+*.o
+*.obj
+*.d
+*.crf
+*.lst
+*.lnp
+*.map
+*.axf
+*.elf
+*.hex
+*.bin
+*.htm
+*.dep
+*.iex
+*.bak
+
+# Python 上位机本地环境和缓存
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+env/
+ENV/
+.pytest_cache/
+.mypy_cache/
+
+# 日志和临时文件
+*.log
+*.tmp
+*.temp
+*.orig
+*.rej
+
+# 压缩包和导出文件
+*.zip
+*.rar
+*.7z
+*.tar
+*.gz

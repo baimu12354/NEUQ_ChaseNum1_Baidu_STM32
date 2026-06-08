@@ -1,15 +1,12 @@
+
 #include "ChaseNum1_Include.h"
 
 
 void TS_TFT180_init(void){
-    printf("Debug: Enter TS_TFT180_init\n");
     TS_Hard_SPI_init();
-    printf("Debug: SPI Hardware Init Done\n");
     tft180_init();
-    printf("Debug: tft180_init Logic Done\n"); // 3. 确认屏幕逻辑初始化完成
-    tft180_show_string(0, 0, "ChaseNum1");
 
-    
+    tft180_show_string(0, 0, "ChaseNum1 WIN!!!");
 }
 
 
@@ -466,7 +463,7 @@ void tft180_init (void){
     tft180_set_color(tft180_pencolor, tft180_bgcolor);
 
     TFT180_RST(0);
-    CN_delay_ms(5);
+    CN_delay_ms(100);
     TFT180_RST(1);
     CN_delay_ms(120);
 
@@ -587,11 +584,6 @@ void tft180_init (void){
     tft180_clear();
 
     TFT180_BLK(1);  // 打开背光
-    for(int y=0; y<50; y++){
-        for(int x=0; x<50; x++){
-            tft180_draw_point(x, y, 0xF800); 
-        }
-    }
 }
 
 
@@ -839,9 +831,59 @@ const uint8_t ascii_font_6x8[][6] ={
 SPI_HandleTypeDef Hard_SPI_2_Handle={0};
 
 void TS_Hard_SPI_init(void){
+    // __HAL_RCC_SPI2_CLK_ENABLE(); //使能SPI2时钟
+    // __HAL_RCC_GPIOD_CLK_ENABLE();
+    // __HAL_RCC_GPIOG_CLK_ENABLE();
+    // __HAL_RCC_GPIOI_CLK_ENABLE();
+
+    // GPIO_InitTypeDef GPIO_initure={0};
+
+    // GPIO_initure.Pin=GPIO_PIN_1 | GPIO_PIN_3;
+    // GPIO_initure.Mode=GPIO_MODE_AF_PP;
+    // GPIO_initure.Pull=GPIO_NOPULL;
+    // GPIO_initure.Speed=GPIO_SPEED_FREQ_VERY_HIGH;
+    // GPIO_initure.Alternate=GPIO_AF5_SPI2;
+    // HAL_GPIO_Init(GPIOI,&GPIO_initure);
+
+    // GPIO_initure.Pin=GPIO_PIN_2 | GPIO_PIN_3 | GPIO_PIN_4;
+    // GPIO_initure.Mode=GPIO_MODE_OUTPUT_PP;
+    // GPIO_initure.Pull=GPIO_PULLUP;
+    // GPIO_initure.Speed=GPIO_SPEED_FREQ_HIGH;
+    // HAL_GPIO_Init(GPIOD,&GPIO_initure);
+
+    // GPIO_initure.Pin=GPIO_PIN_10;
+    // HAL_GPIO_Init(GPIOG,&GPIO_initure);
+
+    // HAL_GPIO_WritePin(GPIOD,GPIO_PIN_2,GPIO_PIN_SET);
+
+    // Hard_SPI_2_Handle.Instance=SPI2;                                  //SPI2
+    // Hard_SPI_2_Handle.Init.Mode=SPI_MODE_MASTER;                            //SPI：主机模式
+    // Hard_SPI_2_Handle.Init.Direction=SPI_DIRECTION_1LINE;                   //SPI：单线发送
+    // Hard_SPI_2_Handle.Init.DataSize=SPI_DATASIZE_8BIT;                      //数据宽度：8bit
+    // Hard_SPI_2_Handle.Init.CLKPolarity=SPI_POLARITY_LOW;                    //CLK空闲为低
+    // Hard_SPI_2_Handle.Init.CLKPhase=SPI_PHASE_1EDGE;                        //数据在第一个边沿有效
+    // Hard_SPI_2_Handle.Init.NSS=SPI_NSS_SOFT;                                //软件片选
+    // Hard_SPI_2_Handle.Init.BaudRatePrescaler=SPI_BAUDRATEPRESCALER_32;       //二分频，最高频率
+    // Hard_SPI_2_Handle.Init.FirstBit=SPI_FIRSTBIT_MSB;                       //大端序
+    // Hard_SPI_2_Handle.Init.TIMode=SPI_TIMODE_DISABLE;                       //禁止TI模式，使用摩托罗拉协议
+    // Hard_SPI_2_Handle.Init.CRCCalculation=SPI_CRCCALCULATION_DISABLE;       //禁止CRC校验
+    // Hard_SPI_2_Handle.Init.CRCPolynomial=1;                                 //CRC校验，无效
+
+    // HAL_SPI_Init(&Hard_SPI_2_Handle);
+
+    // __HAL_SPI_ENABLE(&Hard_SPI_2_Handle); // 先初始化
+    // __HAL_SPI_DISABLE(&Hard_SPI_2_Handle); // 修改配置前禁用
+    // SPI_1LINE_TX(&Hard_SPI_2_Handle); // 设置为单线发送
+    // __HAL_SPI_ENABLE(&Hard_SPI_2_Handle); // 启用 SPI
+
+    
+
+    // uint32_t spi_freq = HAL_RCCEx_GetPeriphCLKFreq(RCC_PERIPHCLK_SPI2);
+    // printf("SPI2 Clock: %lu Hz\n", spi_freq);
+
     __HAL_RCC_SPI2_CLK_ENABLE(); //使能SPI2时钟
     __HAL_RCC_GPIOD_CLK_ENABLE();
-    __HAL_RCC_GPIOG_CLK_ENABLE();
+    __HAL_RCC_GPIOB_CLK_ENABLE();
     __HAL_RCC_GPIOI_CLK_ENABLE();
 
     GPIO_InitTypeDef GPIO_initure={0};
@@ -853,16 +895,16 @@ void TS_Hard_SPI_init(void){
     GPIO_initure.Alternate=GPIO_AF5_SPI2;
     HAL_GPIO_Init(GPIOI,&GPIO_initure);
 
-    GPIO_initure.Pin=GPIO_PIN_2 | GPIO_PIN_3 | GPIO_PIN_4;
+    GPIO_initure.Pin=GPIO_PIN_3 | GPIO_PIN_4 | GPIO_PIN_5;
     GPIO_initure.Mode=GPIO_MODE_OUTPUT_PP;
     GPIO_initure.Pull=GPIO_PULLUP;
     GPIO_initure.Speed=GPIO_SPEED_FREQ_HIGH;
     HAL_GPIO_Init(GPIOD,&GPIO_initure);
 
-    GPIO_initure.Pin=GPIO_PIN_10;
-    HAL_GPIO_Init(GPIOG,&GPIO_initure);
+    GPIO_initure.Pin=GPIO_PIN_15;
+    HAL_GPIO_Init(GPIOA,&GPIO_initure);
 
-    HAL_GPIO_WritePin(GPIOD,GPIO_PIN_2,GPIO_PIN_SET);
+    HAL_GPIO_WritePin(GPIOD,GPIO_PIN_4,GPIO_PIN_SET);
 
     Hard_SPI_2_Handle.Instance=SPI2;                                  //SPI2
     Hard_SPI_2_Handle.Init.Mode=SPI_MODE_MASTER;                            //SPI：主机模式
@@ -883,9 +925,6 @@ void TS_Hard_SPI_init(void){
     __HAL_SPI_DISABLE(&Hard_SPI_2_Handle); // 修改配置前禁用
     SPI_1LINE_TX(&Hard_SPI_2_Handle); // 设置为单线发送
     __HAL_SPI_ENABLE(&Hard_SPI_2_Handle); // 启用 SPI
-
-    // uint32_t spi_freq = HAL_RCCEx_GetPeriphCLKFreq(RCC_PERIPHCLK_SPI2);
-    // printf("SPI2 Clock: %lu Hz\n", spi_freq);
 
 }
 

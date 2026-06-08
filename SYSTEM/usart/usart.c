@@ -37,8 +37,8 @@ void _sys_exit(int x)
 //重定义fputc函数 
 int fputc(int ch, FILE *f)
 { 	
-	while((USART1->ISR&0X40)==0);//循环发送,直到发送完毕    && (USART3->ISR&0X40)==0
-	USART1->TDR=(u8)ch;      
+	while((UART7->ISR&0X40)==0);//循环发送,直到发送完毕    && (USART3->ISR&0X40)==0
+	UART7->TDR=(u8)ch;      
 	// USART3->TDR=(u8)ch;      
 	return ch;
 }

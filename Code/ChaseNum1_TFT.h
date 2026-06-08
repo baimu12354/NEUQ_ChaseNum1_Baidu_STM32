@@ -1,5 +1,5 @@
-#ifndef _CHASE_NUM1_TFT_H_
-#define _CHASE_NUM1_TFT_H_
+#ifndef _TOPSPEED_TFT_H_
+#define _TOPSPEED_TFT_H_
 
 #include "stm32h7xx_hal.h"
 #include "ChaseNum1_Typedef.h"
@@ -25,10 +25,17 @@ void TS_Hard_SPI_init(void);
 #define TFT180_DEFAULT_BGCOLOR          (RGB565_WHITE)                          // 默认的背景颜色
 #define TFT180_DEFAULT_DISPLAY_FONT     (TFT180_8X16_FONT)                      // 默认的字体模式
 
-#define TFT180_DC(x)                    ((x) ? (HAL_GPIO_WritePin(GPIOD,GPIO_PIN_4,GPIO_PIN_SET))  : (HAL_GPIO_WritePin(GPIOD,GPIO_PIN_4,GPIO_PIN_RESET)))
-#define TFT180_RST(x)                   ((x) ? (HAL_GPIO_WritePin(GPIOG,GPIO_PIN_10,GPIO_PIN_SET))  : (HAL_GPIO_WritePin(GPIOG,GPIO_PIN_10,GPIO_PIN_RESET)))
-#define TFT180_CS(x)                    ((x) ? (HAL_GPIO_WritePin(GPIOD,GPIO_PIN_2,GPIO_PIN_SET))  : (HAL_GPIO_WritePin(GPIOD,GPIO_PIN_2,GPIO_PIN_RESET)))
-#define TFT180_BLK(x)                   ((x) ? (HAL_GPIO_WritePin(GPIOD,GPIO_PIN_3,GPIO_PIN_SET))  : (HAL_GPIO_WritePin(GPIOD,GPIO_PIN_3,GPIO_PIN_RESET)))
+// #define TFT180_DC(x)                    ((x) ? (HAL_GPIO_WritePin(GPIOD,GPIO_PIN_4,GPIO_PIN_SET))  : (HAL_GPIO_WritePin(GPIOD,GPIO_PIN_4,GPIO_PIN_RESET)))
+// #define TFT180_RST(x)                   ((x) ? (HAL_GPIO_WritePin(GPIOG,GPIO_PIN_10,GPIO_PIN_SET))  : (HAL_GPIO_WritePin(GPIOG,GPIO_PIN_10,GPIO_PIN_RESET)))
+// #define TFT180_CS(x)                    ((x) ? (HAL_GPIO_WritePin(GPIOD,GPIO_PIN_2,GPIO_PIN_SET))  : (HAL_GPIO_WritePin(GPIOD,GPIO_PIN_2,GPIO_PIN_RESET)))
+// #define TFT180_BLK(x)                   ((x) ? (HAL_GPIO_WritePin(GPIOD,GPIO_PIN_3,GPIO_PIN_SET))  : (HAL_GPIO_WritePin(GPIOD,GPIO_PIN_3,GPIO_PIN_RESET)))
+
+#define TFT180_DC(x)                    ((x) ? (HAL_GPIO_WritePin(GPIOD,GPIO_PIN_3,GPIO_PIN_SET))  : (HAL_GPIO_WritePin(GPIOD,GPIO_PIN_3,GPIO_PIN_RESET)))
+#define TFT180_RST(x)                   ((x) ? (HAL_GPIO_WritePin(GPIOA,GPIO_PIN_15,GPIO_PIN_SET))  : (HAL_GPIO_WritePin(GPIOA,GPIO_PIN_15,GPIO_PIN_RESET)))
+#define TFT180_CS(x)                    ((x) ? (HAL_GPIO_WritePin(GPIOD,GPIO_PIN_4,GPIO_PIN_SET))  : (HAL_GPIO_WritePin(GPIOD,GPIO_PIN_4,GPIO_PIN_RESET)))
+#define TFT180_BLK(x)                   ((x) ? (HAL_GPIO_WritePin(GPIOD,GPIO_PIN_5,GPIO_PIN_SET))  : (HAL_GPIO_WritePin(GPIOD,GPIO_PIN_5,GPIO_PIN_RESET)))
+
+
 //=================================================定义 TFT180 基本配置================================================
 
 
@@ -79,4 +86,4 @@ void    tft180_init                     (void);
 //=================================================声明 TFT180 基础函数================================================
 
 
-#endif // !_CHASE_NUM1_TFT_H_
+#endif // !_TOPSPEED_TFT_H_

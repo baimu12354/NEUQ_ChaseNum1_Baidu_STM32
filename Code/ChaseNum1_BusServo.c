@@ -2,10 +2,10 @@
 
 #include <string.h>
 
-/* ---------------- 发送模块 ---------------- */
+//--------------------------------发送模块--------------------------------//
 // 舵机初始化
 void Servo_Init(void){
-    CN_UART7_init();
+    CN_UART3_init();
 }
 
 // 舵机串口组包发送函数
@@ -399,9 +399,9 @@ void Servo_Set_Origin(uint8_t servo_id, uint8_t reset_mode) {
     content[1] = reset_mode;
     Servo_Send_Packet(SERVO_CMD_SET_ORIGIN, content, 2);
 }
-/* ---------------- 发送模块 ---------------- */
+//--------------------------------发送模块--------------------------------//
 
-/* ---------------- 接收与解析模块 ---------------- */
+//--------------------------------接收与解析模块--------------------------------//
 // 全局数组 用于保存各个ID舵机的最新状态
 Servo_Info_t g_ServoInfo[255] = {0}; 
 
@@ -545,6 +545,7 @@ void Servo_Parse_Packet(uint8_t cmd_id, uint8_t length, uint8_t *content) {
 }
 
 // 串口回调函数
-void CN_UART7_RX_CALLBACK(uint8_t dat){
+void CN_UART3_RX_CALLBACK(uint8_t dat){
     Servo_Receive_Byte(dat);
 }
+//--------------------------------接收与解析模块--------------------------------//

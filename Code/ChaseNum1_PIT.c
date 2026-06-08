@@ -9,7 +9,7 @@ TIM_HandleTypeDef TIM13_PIT_Handle={0};
 
 void CN_PIT1_CALLBACK(void);
 void CN_PIT2_CALLBACK(void);
-void CN_PIT3_CALLBACK(void);
+// void CN_PIT3_CALLBACK(void);
 
 void CN_PIT_1_init_ms(uint16_t period,uint8_t priority){//初始化后自动启动定时器和中断
     //timer总线时钟速率200mhz
@@ -82,6 +82,10 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
         us_delay_counter++;
         systime_us+=10;
         // printf("intr\n");
+    }
+    if (htim->Instance == TIM15)
+    {
+        CN_Pump_TIM15_PeriodElapsedCallback();
     }
 }
 

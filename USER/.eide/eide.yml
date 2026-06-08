@@ -133,6 +133,8 @@ targets:
       libList: []
     excludeList:
       - ../Code/ChaseNum1_TFT180/ChaseNum1_FIFO.c
+    settings:
+      debugger: cortex-debug
     toolchain: AC5
     toolchainConfigMap:
       AC5:

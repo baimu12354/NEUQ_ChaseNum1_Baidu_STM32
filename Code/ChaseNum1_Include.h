@@ -1,4 +1,7 @@
 #include "stm32h7xx_hal.h"
+#include <math.h>
+
+#include "ChaseNum1_Typedef.h"
 
 #include "ChaseNum1_calcustom.h"
 #include "ChaseNum1_COM.h"
@@ -13,6 +16,9 @@
 #include "ChaseNum1_Uart.h"
 #include "ChaseNum1_FIFO.h"
 #include "ChaseNum1_BusServo.h"
+#include "ChaseNum1_MecArm.h"
+#include "ChaseNum1_Pump.h"
+#include "ChaseNum1_NanoProtocol.h"
 
 #include "ChaseNum1_Menu.h"
 

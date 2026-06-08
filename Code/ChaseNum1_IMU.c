@@ -6,6 +6,8 @@ float yaw_bias=0;//上位机指定角度后，需要用这个偏移值来同步�
 float YAW_aim=0;
 
 /*************************************调用wit-JY61接口***********************************/
+#define IMU_UART_INDEX CN_UART_4
+
 #define ACC_UPDATE		0x01
 #define GYRO_UPDATE		0x02
 #define ANGLE_UPDATE	0x04
@@ -16,7 +18,7 @@ static volatile char s_cDataUpdate = 0, s_cCmd = 0xff;
 IMU_Data_struct IMU_data={0};
 
 void CN_3rd_Party_JY61_IMU_UART_write_func(uint8_t *pData, uint32_t len){
-    CN_UART_send_data_IT(CN_UART_2,pData,len);
+    CN_UART_send_data_IT(IMU_UART_INDEX,pData,len);
 }
 
 void CN_3rd_Party_JY61_IMU_init(void){
@@ -38,15 +40,15 @@ void CN_3rd_Party_JY61_IMU_init(void){
     WitWriteReg(BAUD,WIT_BAUD_115200);//设置传感器接收波特率
 
     CN_delay_ms(50);
-    CN_UART_deinit(CN_UART_2);
-    CN_UART2_init(115200);//重新初始化串口，配置为相同的波特率
+    CN_UART_deinit(IMU_UART_INDEX);
+    CN_UART4_init(115200);//重新初始化串口，配置为相同的波特率
 
     // WitWriteReg(RSW,0x6);//只输出加速度、角速度
     WitWriteReg(KEY,0xB588);
     CN_delay_ms(50);
     WitWriteReg(AXIS6,0x01);//关闭磁力计，使用纯惯性解算
     CN_delay_ms(50);
-    WitWriteReg(RSW,RSW_ANGLE);//只使用角度输出 | RSW_GYRO
+    WitWriteReg(RSW, RSW_ANGLE);//+底盘只使用航向角度闭环，IMU 不再额外输出角速度。
     CN_delay_ms(50);
     WitWriteReg(CALSW,CALANGLEZ);//只使用角度输出
 }
@@ -55,8 +57,8 @@ uint8_t CN_auto_scan_JY61(void){
     uint32_t bauds[7]={4800,9600,19200,38400,57600,115200,230400};
 
     for(int i =0;i<7;i++){
-        CN_UART_deinit(CN_UART_2);
-        CN_UART2_init(bauds[i]);
+        CN_UART_deinit(IMU_UART_INDEX);
+        CN_UART4_init(bauds[i]);
         WitReadReg(AX, 3);
         CN_delay_ms(100);
         if(s_cDataUpdate == 0){
@@ -70,14 +72,11 @@ uint8_t CN_auto_scan_JY61(void){
     return 0;
 }
     
-void CN_UART2_RX_CALLBACK(uint8_t dat){
-    // printf("%c\n",dat);
+void CN_UART4_RX_CALLBACK(uint8_t dat){
     WitSerialDataIn(dat);
 }
 
 void CN_3rd_Party_JY61_IMU_update_CALLBACK(uint32_t uiReg, uint32_t uiRegNum){
-    // printf("callback\n");
-    // printf("%d\n",uiReg);
 	int i;
     for(i = 0; i < uiRegNum; i++)
     {
@@ -96,32 +95,30 @@ void CN_3rd_Party_JY61_IMU_update_CALLBACK(uint32_t uiReg, uint32_t uiRegNum){
                 s_cDataUpdate |= ACC_UPDATE;
                 break;
             case GX:
-                IMU_data.G_X=sReg[GX]*0.001065264436;
+                IMU_data.G_X=sReg[GX]*0.06103515625f;
                 s_cDataUpdate |= GYRO_UPDATE;
 
                 // printf("%f\n",IMU_data.G_X);
                 break;
             case GY:
-                IMU_data.G_Y=sReg[GY]*0.001065264436;
+                IMU_data.G_Y=sReg[GY]*0.06103515625f;
                 s_cDataUpdate |= GYRO_UPDATE;
                 break;
             case GZ:
-                IMU_data.G_Z=sReg[GZ]*0.001065264436;
+                IMU_data.G_Z=-sReg[GZ]*0.06103515625f;   //+单位 deg/s，与底盘角速度命令保持一致。
                 s_cDataUpdate |= GYRO_UPDATE;
                 break;      
                 
             case Yaw:
                 s_cDataUpdate |= READ_UPDATE;   
-                // printf("%f\n",sReg[Yaw]*180.0f/32760);
-                YAW_now=sReg[Yaw]*180.0f/32760;
+                //printf("%f\n",sReg[Yaw]*180.0f/32760);
+                YAW_now=-sReg[Yaw]*180.0f/32760;
             default:
 				s_cDataUpdate |= READ_UPDATE;
 			    break;
         }
 		uiReg++;
     }
-
-    //printf("%f\n",IMU_data.G_X);
 }
 /*************************************调用wit-JY61接口***********************************/
 

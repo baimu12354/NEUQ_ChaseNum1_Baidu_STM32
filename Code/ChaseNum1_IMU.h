@@ -8,6 +8,8 @@ extern float YAW_now;
 extern float yaw_bias;
 extern float YAW_aim;
 
+extern IMU_Data_struct IMU_data;
+
 void CN_3rd_Party_JY61_IMU_init(void);//初始化陀螺仪
 uint8_t CN_auto_scan_JY61(void);//自动检测陀螺仪的波特率
 void CN_3rd_Party_JY61_IMU_update_CALLBACK(uint32_t uiReg, uint32_t uiRegNum);//陀螺仪数据更新回调函数

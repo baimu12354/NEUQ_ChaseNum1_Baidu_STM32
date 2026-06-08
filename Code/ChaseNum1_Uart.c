@@ -50,26 +50,47 @@ uint8_t UART_6_RX_dat=0;
 uint8_t UART_7_RX_dat=0;
 uint8_t UART_8_RX_dat=0;
 
+static uint32_t CN_UART_TX_FIFO_Write_Fail_Count[8]={0};
+static uint32_t CN_UART_Error_Count[8]={0};
+static uint32_t CN_UART_Overrun_Count[8]={0};
+static uint32_t CN_UART_Frame_Error_Count[8]={0};
+static uint32_t CN_UART_Noise_Error_Count[8]={0};
+static uint32_t CN_UART_Last_Error_Code[8]={0};
+
+static uint8_t CN_UART_Get_Index_By_Handle(UART_HandleTypeDef *huart,uint8_t *index)
+{
+    if(huart==NULL || index==NULL) return 0;
+    if(huart->Instance==USART1){*index=CN_UART_1;return 1;}
+    if(huart->Instance==USART2){*index=CN_UART_2;return 1;}
+    if(huart->Instance==USART3){*index=CN_UART_3;return 1;}
+    if(huart->Instance==UART4){*index=CN_UART_4;return 1;}
+    if(huart->Instance==UART5){*index=CN_UART_5;return 1;}
+    if(huart->Instance==USART6){*index=CN_UART_6;return 1;}
+    if(huart->Instance==UART7){*index=CN_UART_7;return 1;}
+    if(huart->Instance==UART8){*index=CN_UART_8;return 1;}
+    return 0;
+}
+
 void CN_UART1_init(void){
     GPIO_InitTypeDef GPIO_Initure={0};
 
-    // //使用车载接口
-    //  __HAL_RCC_GPIOB_CLK_ENABLE();
-    // GPIO_Initure.Pin=GPIO_PIN_14|GPIO_PIN_15;
-	// GPIO_Initure.Mode=GPIO_MODE_AF_PP;      //复用模式
-	// GPIO_Initure.Pull=GPIO_PULLUP;              //上拉
-	// GPIO_Initure.Speed=GPIO_SPEED_FREQ_HIGH;    //高速
-    // GPIO_Initure.Alternate=GPIO_AF4_USART1;
-	// HAL_GPIO_Init(GPIOB,&GPIO_Initure);
-
-    //使用下载器串口
-    __HAL_RCC_GPIOA_CLK_ENABLE();
-    GPIO_Initure.Pin=GPIO_PIN_9|GPIO_PIN_10;
+    // 使用车载接口
+     __HAL_RCC_GPIOB_CLK_ENABLE();
+    GPIO_Initure.Pin=GPIO_PIN_14|GPIO_PIN_15;
 	GPIO_Initure.Mode=GPIO_MODE_AF_PP;      //复用模式
 	GPIO_Initure.Pull=GPIO_PULLUP;              //上拉
 	GPIO_Initure.Speed=GPIO_SPEED_FREQ_HIGH;    //高速
-    GPIO_Initure.Alternate=GPIO_AF7_USART1;
-	HAL_GPIO_Init(GPIOA,&GPIO_Initure);
+    GPIO_Initure.Alternate=GPIO_AF4_USART1;
+	HAL_GPIO_Init(GPIOB,&GPIO_Initure);
+
+    // //使用下载器串口
+    // __HAL_RCC_GPIOA_CLK_ENABLE();
+    // GPIO_Initure.Pin=GPIO_PIN_9|GPIO_PIN_10;
+	// GPIO_Initure.Mode=GPIO_MODE_AF_PP;      //复用模式
+	// GPIO_Initure.Pull=GPIO_PULLUP;              //上拉
+	// GPIO_Initure.Speed=GPIO_SPEED_FREQ_HIGH;    //高速
+    // GPIO_Initure.Alternate=GPIO_AF7_USART1;
+	// HAL_GPIO_Init(GPIOA,&GPIO_Initure);
 
    __HAL_RCC_USART1_CLK_ENABLE();
 	UART1_Handle.Instance=USART1;					    //USART1
@@ -93,35 +114,38 @@ void CN_UART1_init(void){
     HAL_UART_Receive_IT(&UART1_Handle,&UART_1_RX_dat,1);
 }
 
-void CN_UART2_init(uint32_t baud){
+void CN_UART2_init(void){
     GPIO_InitTypeDef GPIO_Initure={0};
 
-    __HAL_RCC_GPIOD_CLK_ENABLE();
-    GPIO_Initure.Pin=GPIO_PIN_5|GPIO_PIN_6;
+    __HAL_RCC_GPIOA_CLK_ENABLE();
+    GPIO_Initure.Pin=GPIO_PIN_2|GPIO_PIN_3;
 	GPIO_Initure.Mode=GPIO_MODE_AF_PP;      //复用模式
 	GPIO_Initure.Pull=GPIO_PULLUP;              //上拉
 	GPIO_Initure.Speed=GPIO_SPEED_FREQ_HIGH;    //高速
     GPIO_Initure.Alternate=GPIO_AF7_USART2;
-	HAL_GPIO_Init(GPIOD,&GPIO_Initure);
+	HAL_GPIO_Init(GPIOA,&GPIO_Initure);
 
     __HAL_RCC_USART2_CLK_ENABLE();
 	UART2_Handle.Instance=USART2;					    //USART1
-	UART2_Handle.Init.BaudRate=baud;				    //波特率
+	UART2_Handle.Init.BaudRate=115200;				    //波特率
 	UART2_Handle.Init.WordLength=UART_WORDLENGTH_8B;   //字长为8位数据格式
 	UART2_Handle.Init.StopBits=UART_STOPBITS_1;	    //一个停止位
 	UART2_Handle.Init.Parity=UART_PARITY_NONE;		    //无奇偶校验位
 	UART2_Handle.Init.HwFlowCtl=UART_HWCONTROL_NONE;   //无硬件流控
 	UART2_Handle.Init.Mode=UART_MODE_TX_RX;		    //收发模式
-    UART2_Handle.Init.FIFOMode=UART_FIFOMODE_ENABLE;
+    UART2_Handle.Init.FIFOMode=UART_FIFOMODE_DISABLE;  //+UART2 使用 1 字节中断收包，关闭硬件 FIFO 避免尾字节滞留。
 
     HAL_UART_Init(&UART2_Handle);
     HAL_NVIC_SetPriority(USART2_IRQn, 2, 0);// 设置中断优先级
     HAL_NVIC_EnableIRQ(USART2_IRQn);// 启用 TIM2 中断 
 
     // __HAL_UART_ENABLE_IT(&UART2_Handle,UART_IT_TC);
-    __HAL_UART_ENABLE_IT(&UART2_Handle,UART_IT_RXNE);
+    //+RXNE 中断由 HAL_UART_Receive_IT() 统一开启，避免与 HAL 接收状态机重复配置。
     __HAL_UART_DISABLE_IT(&UART2_Handle,UART_IT_TC);
     __HAL_UART_CLEAR_IT(&UART2_Handle,UART_IT_TC);
+
+    // UART2 作为 NANO 通信口，需要挂载发送 FIFO 才能使用 CN_UART_write_fifo。
+    CN_FIFO_init(&CN_UART2_FIFO,CN_UART2_temp,CN_UART_TEMP_SIZE);
 
     HAL_UART_Receive_IT(&UART2_Handle,&UART_2_RX_dat,1);
 }
@@ -162,7 +186,7 @@ void CN_UART3_init(void){
     HAL_UART_Receive_IT(&UART3_Handle,&UART_3_RX_dat,1);
 }
 
-void CN_UART4_init(void){
+void CN_UART4_init(uint32_t baud){
     GPIO_InitTypeDef GPIO_Initure={0};
 
     __HAL_RCC_GPIOC_CLK_ENABLE();
@@ -175,7 +199,7 @@ void CN_UART4_init(void){
 
     __HAL_RCC_UART4_CLK_ENABLE();
 	UART4_Handle.Instance=UART4;					    //USART1
-	UART4_Handle.Init.BaudRate=115200;				    //波特率
+	UART4_Handle.Init.BaudRate=baud;				    //波特率
 	UART4_Handle.Init.WordLength=UART_WORDLENGTH_8B;   //字长为8位数据格式
 	UART4_Handle.Init.StopBits=UART_STOPBITS_1;	    //一个停止位
 	UART4_Handle.Init.Parity=UART_PARITY_NONE;		    //无奇偶校验位
@@ -559,7 +583,9 @@ void CN_UART_write_fifo(CN_UART_ENUM Moudle,uint8_t *data,uint32_t len){
         if(FIFO_occupied>0){                                        //如果FIFO中还有数据
             CN_FIFO_read(FIFO_use,TX_temp_g_use,FIFO_occupied);              //读出FIFO剩余数据
             HAL_UART_Transmit_IT(Moudle_use,TX_temp_g_use,FIFO_occupied);    //发送剩余数据
-            CN_FIFO_write(FIFO_use,data,len);                       //写入当前数据到FIFO
+            if(CN_FIFO_write(FIFO_use,data,len)==0){                //写入当前数据到FIFO
+                CN_UART_TX_FIFO_Write_Fail_Count[Moudle]++;
+            }
         }
         else{                                                       //如果FIFO中没有数据了
             // printf("send data\n");
@@ -569,7 +595,9 @@ void CN_UART_write_fifo(CN_UART_ENUM Moudle,uint8_t *data,uint32_t len){
     }
     else{                                                           //如果串口忙
         // printf("write fifo\n");
-        CN_FIFO_write(FIFO_use,data,len);                           //写入当前数据到FIFO
+        if(CN_FIFO_write(FIFO_use,data,len)==0){                    //写入当前数据到FIFO
+            CN_UART_TX_FIFO_Write_Fail_Count[Moudle]++;
+        }
     }
 }
 
@@ -577,6 +605,36 @@ void CN_UART_write_fifo(CN_UART_ENUM Moudle,uint8_t *data,uint32_t len){
 void CN_UART_write_string_FIFO(CN_UART_ENUM Moudle,uint8_t *str){
     uint16_t len=strlen(str);
     CN_UART_write_fifo(Moudle,str,len);
+}
+
+//+读取 UART 发送 FIFO 和硬件错误诊断信息。
+void CN_UART_Get_Diag(CN_UART_ENUM Moudle,CN_UART_Diag_t *diag)
+{
+    CN_FIFO_struct *FIFO_use=NULL;
+
+    if(diag==NULL) return;
+    memset(diag,0,sizeof(CN_UART_Diag_t));
+
+    switch(Moudle){
+        case CN_UART_1:{FIFO_use=&CN_UART1_FIFO;break;}
+        case CN_UART_2:{FIFO_use=&CN_UART2_FIFO;break;}
+        case CN_UART_3:{FIFO_use=&CN_UART3_FIFO;break;}
+        case CN_UART_4:{FIFO_use=&CN_UART4_FIFO;break;}
+        case CN_UART_5:{FIFO_use=&CN_UART5_FIFO;break;}
+        case CN_UART_6:{FIFO_use=&CN_UART6_FIFO;break;}
+        case CN_UART_7:{FIFO_use=&CN_UART7_FIFO;break;}
+        case CN_UART_8:{FIFO_use=&CN_UART8_FIFO;break;}
+        default:{return;}
+    }
+
+    diag->tx_fifo_write_fail_count=CN_UART_TX_FIFO_Write_Fail_Count[Moudle];
+    diag->uart_error_count=CN_UART_Error_Count[Moudle];
+    diag->uart_overrun_count=CN_UART_Overrun_Count[Moudle];
+    diag->uart_frame_error_count=CN_UART_Frame_Error_Count[Moudle];
+    diag->uart_noise_error_count=CN_UART_Noise_Error_Count[Moudle];
+    diag->hal_error_code=CN_UART_Last_Error_Code[Moudle];
+    diag->tx_fifo_occupied=CN_get_FIFO_occupied(FIFO_use);
+    diag->tx_fifo_space=CN_get_FIFO_space(FIFO_use);
 }
 
 void USART1_IRQHandler(void){HAL_UART_IRQHandler(&UART1_Handle);}
@@ -591,7 +649,7 @@ void UART8_IRQHandler(void){HAL_UART_IRQHandler(&UART8_Handle);}
 void CN_UART1_RX_CALLBACK(uint8_t dat){}
 // void CN_UART2_RX_CALLBACK(uint8_t dat){}
 // void CN_UART3_RX_CALLBACK(uint8_t dat){}
-void CN_UART4_RX_CALLBACK(uint8_t dat){}
+// void CN_UART4_RX_CALLBACK(uint8_t dat){}
 void CN_UART5_RX_CALLBACK(uint8_t dat){}
 void CN_UART6_RX_CALLBACK(uint8_t dat){}
 // void CN_UART7_RX_CALLBACK(uint8_t dat){}
@@ -661,7 +719,7 @@ void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart){
 // 串口接收回调函数
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart){
     if(huart->Instance==USART1){
-        // CN_Debug_UART_RX_CALLBACK(UART_1_RX_dat);
+        CN_UART1_RX_CALLBACK(UART_1_RX_dat);
         HAL_UART_Receive_IT(&UART1_Handle,&UART_1_RX_dat,1);
     }
     if(huart->Instance==USART2){
@@ -691,6 +749,34 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart){
     if(huart->Instance==UART8){
         CN_UART8_RX_CALLBACK(UART_8_RX_dat);
         HAL_UART_Receive_IT(&UART8_Handle,&UART_8_RX_dat,1);
+    }
+}
+
+// 串口错误回调函数：接收过载或噪声错误后重新开启接收，避免通信口卡死。
+void HAL_UART_ErrorCallback(UART_HandleTypeDef *huart)
+{
+    uint8_t uart_index=0;
+
+    if(CN_UART_Get_Index_By_Handle(huart,&uart_index)!=0){
+        CN_UART_Error_Count[uart_index]++;
+        CN_UART_Last_Error_Code[uart_index]=huart->ErrorCode;
+        if((huart->ErrorCode & HAL_UART_ERROR_ORE)!=0U){
+            CN_UART_Overrun_Count[uart_index]++;
+        }
+        if((huart->ErrorCode & HAL_UART_ERROR_FE)!=0U){
+            CN_UART_Frame_Error_Count[uart_index]++;
+        }
+        if((huart->ErrorCode & HAL_UART_ERROR_NE)!=0U){
+            CN_UART_Noise_Error_Count[uart_index]++;
+        }
+    }
+
+    if (huart->Instance == USART2) {
+        __HAL_UART_CLEAR_OREFLAG(huart);
+        __HAL_UART_CLEAR_FEFLAG(huart);
+        __HAL_UART_CLEAR_NEFLAG(huart);
+        HAL_UART_AbortReceive(huart);
+        HAL_UART_Receive_IT(&UART2_Handle, &UART_2_RX_dat, 1);
     }
 }
 /******************************************************************数据链路层*********************************************************/
