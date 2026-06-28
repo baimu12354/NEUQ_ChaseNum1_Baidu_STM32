@@ -1,5 +1,6 @@
 # NANO 上位机通信配置。
-# 当前下位机实际启用 UART2 + NANO 协议；旧 Unified UART3 协议文件仍保留，但不是当前主链路。
+# 下位机 NANO 协议串口由 Code/ChaseNum1_COM.h 的 NANO_PROTOCOL_UART_SELECT 决定。
+# 当前工程可在 UART2 / UART7 之间切换，旧 Unified UART3 协议文件仍保留，但不是当前主链路。
 
 serial:
   port: COM8
@@ -22,6 +23,7 @@ modules:
   chassis: 0x02
   arm: 0x03
   pump: 0x04
+  shooter: 0x05
 
 commands:
   system:
@@ -36,6 +38,9 @@ commands:
     rotate_to: 0x13
     translate_rel: 0x14
     get_state: 0x15
+    start_local_pos: 0x16
+    get_local_pos: 0x17
+    stop_local_pos: 0x18
   arm:
     target_xyz_dir: 0x20
     fold_home: 0x21
@@ -45,6 +50,10 @@ commands:
     suck: 0x30
     release: 0x31
     get_state: 0x32
+  shooter:
+    fire: 0x40
+    reset: 0x41
+    get_state: 0x42
 
 responses:
   ack: 0x80
@@ -54,6 +63,8 @@ responses:
   arm_pose: 0x84
   chassis_state: 0x85
   pump_state: 0x86
+  chassis_local_pos: 0x87
+  shooter_state: 0x88
 
 payload_formats:
   chassis_run: "<fff"
@@ -63,15 +74,19 @@ payload_formats:
   ack: "<BBBBB"
   event: "<BBBBB"
   status: "<BBBBBBBBIf"
+  status_with_shooter: "<BBBBBBBBIfB"
   chassis_state: "<BBfffff"
+  chassis_local_pos: "<ff"
   arm_pose: "<BBBBffffffff"
   pump_state: "<BBBBfBB"
+  shooter_state: "<BBBBfhH"
 
 states:
   system: [INIT, RET, IDLE, ACTIVE, ESTOP, FAULT]
   chassis: [IDLE, RUN, ROTATE, TRANSLATE, STOP, BRAKE, FAULT]
   arm: [IDLE, MOVING, FOLDING, HOLD, REJECTED, FAULT]
   pump: [IDLE, SUCKING, SUCKED, RELEASING, RELEASED, FAULT]
+  shooter: [IDLE, SPINUP, PUSHING, RETURNING, RESETTING, FAULT]
   movement: [BREAKING, RUNNING, ROTATION, TRANSLATION]
 
 events:
@@ -86,6 +101,10 @@ events:
   0x22: ARM_REJECTED
   0x30: PUMP_SUCK_DONE
   0x31: PUMP_RELEASE_DONE
+  0x32: PUMP_TIMEOUT_STOP
+  0x40: SHOOTER_DONE
+  0x41: SHOOTER_RESET_DONE
+  0x42: SHOOTER_TIMEOUT
 
 errors:
   0x00: OK
@@ -121,6 +140,10 @@ limits:
     translate_dy_cm_min: -1000.0
     translate_dy_cm_max: 1000.0
     translate_internal_distance_max: 50000.0
+    local_position_unit: cm
+    local_position_internal_distance_max: 50000.0
+    local_position_cm_max: 1000.0
+    local_position_internal_to_cm: 0.02
     translate_speed_input_min: 1.0
     translate_speed_input_max: 100.0
     translate_speed_internal_min: 1.0
@@ -137,6 +160,26 @@ limits:
     suction_dir_deg_max: 180.0
   pump:
     release_wait_ms: 500
+  shooter:
+    pwm_output_pin: PB8
+    dir_output_pin: PB7
+    dir_forward_level: GPIO_PIN_SET
+    pwm_timer: TIM16_CH1
+    pwm_period_count: 10000
+    pwm_default_duty_count: 6000
+    servo_uart: UART5
+    servo_uart_tx_pin: PB13
+    servo_uart_rx_pin: PB12
+    servo_home_pos_0p1deg: 0
+    servo_push_pos_0p1deg: 900
+    servo_speed_0p1deg_s: 900
+    servo_accel: 100
+    servo_decel: 100
+    servo_power_limit: 0
+    spinup_ms: 800
+    servo_extra_wait_ms: 300
+    reset_extra_wait_ms: 500
+    action_timeout_ms: 5000
 
 defaults:
   chassis:

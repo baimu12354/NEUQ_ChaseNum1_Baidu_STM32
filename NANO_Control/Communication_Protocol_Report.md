@@ -1,20 +1,20 @@
 # 上位机通信协议报告
 
-本文档站在上位机角度整理当前工程内的通信接口。当前主链路是 `UART2 + NANO 协议`，对应下位机文件：
+本文档站在上位机角度整理当前工程内的通信接口。当前主链路是 `NANO 协议`，实际串口由下位机 `Code/ChaseNum1_COM.h` 中的 `NANO_PROTOCOL_UART_SELECT` 决定，对应下位机文件：
 
 - `Code/ChaseNum1_COM.c`
 - `Code/ChaseNum1_NanoProtocol.c`
 - `Code/ChaseNum1_NanoProtocol.h`
 
-工程内还保留了旧的 `UnifiedProtocol` 和 `VOFA` 调试协议，见文末说明。新上位机程序建议只调用 `PythonTools/controller.py` 中的 `NanoController`。
+工程内还保留了旧的 `UnifiedProtocol` 和 `VOFA` 调试协议，见文末说明。新上位机程序建议只调用 `NANO_Control/controller.py` 中的 `NanoController`。
 
-## 1. 当前主协议：NANO UART2
+## 1. 当前主协议：NANO
 
 ### 1.1 串口参数
 
 | 项目 | 值 |
 |---|---|
-| 串口 | UART2 |
+| 串口 | 由 `NANO_PROTOCOL_UART_SELECT` 选择，当前代码为 UART7 |
 | 波特率 | 115200 |
 | 数据位 | 8 |
 | 校验 | None |
@@ -51,6 +51,7 @@ CHECK = (VERSION + SEQ + MODULE + CMD + LEN + sum(PAYLOAD)) & 0xFF
 | CHASSIS | `0x02` | 底盘运动 |
 | ARM | `0x03` | 机械臂 |
 | PUMP | `0x04` | 气泵 |
+| SHOOTER | `0x05` | 射击模块 |
 
 ## 3. 通用回包
 
@@ -114,6 +115,10 @@ uint8 result
 | ARM_REJECTED | `0x22` | 机械臂目标被拒绝 |
 | PUMP_SUCK_DONE | `0x30` | 气泵吸附完成 |
 | PUMP_RELEASE_DONE | `0x31` | 气泵释放完成 |
+| PUMP_TIMEOUT_STOP | `0x32` | 气泵超时停泵 |
+| SHOOTER_DONE | `0x40` | 一次射击动作完成 |
+| SHOOTER_RESET_DONE | `0x41` | 射击模块复位完成 |
+| SHOOTER_TIMEOUT | `0x42` | 射击动作超时 |
 
 ## 4. SYSTEM 指令
 
@@ -124,7 +129,7 @@ uint8 result
 | ESTOP | `0x03` | 空 | ACK + EVENT |
 | GET_STATUS | `0x04` | 空 | STATUS |
 
-STATUS `0x82` payload 长度 16：
+STATUS `0x82` payload 长度 17：
 
 ```text
 uint8 system_state
@@ -137,6 +142,7 @@ uint8 sucked
 uint8 arm_planner_active
 uint32 tick_ms
 float yaw_deg
+uint8 shooter_state
 ```
 
 ## 5. CHASSIS 指令
@@ -155,8 +161,12 @@ float yaw_deg
 | TRANSLATE | `dx_cm` | `-1000 ~ 1000` | `-50000 ~ 50000` | 相对当前位置 X 平移距离 |
 | TRANSLATE | `dy_cm` | `-1000 ~ 1000` | `-50000 ~ 50000` | 相对当前位置 Y 平移距离 |
 | TRANSLATE | `speed` | `1 ~ 100` | `1 ~ 20` | 定向平移速度 |
+| LOCAL_POS | `x_cm` | 查询回包 | 内部积分 `*0.02` | 相对开始积分位置的局部 X 位移 |
+| LOCAL_POS | `y_cm` | 查询回包 | 内部积分 `*0.02` | 相对开始积分位置的局部 Y 位移 |
 
 RUN 命令必须周期发送。超时时间为 `500 ms`，超时后下位机发送 `CHASSIS_TIMEOUT_STOP`。
+
+底盘局部位移积分由上位机显式开启。上位机发送 START_LOCAL_POS `0x16` 时，下位机会清零局部坐标，并记录当前 yaw 角作为局部坐标系的 `+Y` 方向；之后每次读取编码器增量时，先按定向平移相同的方向和系数合成车体系 `delta_x/delta_y`，再根据当前 yaw 相对开始 yaw 的角度差旋转分解到局部坐标系中累计。回包单位为 cm，换算比例与定向平移一致：下位机内部 `50000` 对应上位机 `1000 cm`，即 `1` 个内部位移单位对应 `0.02 cm`。
 
 ### 5.2 RUN `0x10`
 
@@ -239,6 +249,39 @@ float distance_cm
 
 `vx/vy/wz/distance_cm` 已反向映射为上位机量程。
 
+### 5.8 START_LOCAL_POS `0x16`
+
+payload 空。开启局部位移积分，清零坐标，并记录当前 yaw 为局部坐标系 `+Y` 方向。下位机先回 ACK `0x80`，随后回 CHASSIS_LOCAL_POS `0x87`。
+
+```python
+ctl.chassis_start_local_pos()
+```
+
+### 5.9 GET_LOCAL_POS `0x17`
+
+payload 空。回包为 CHASSIS_LOCAL_POS `0x87`，payload 长度 8：
+
+```text
+float x_cm
+float y_cm
+```
+
+`x_cm/y_cm` 表示当前位置相对开始积分位置的局部坐标，单位为 cm。局部 `+Y` 为开始积分时的车身 yaw 方向，局部 `+X` 与底盘定向平移 X 正方向一致。
+
+```python
+ctl.chassis_get_local_pos()
+time.sleep(0.05)
+print(ctl.chassis_local_pos)
+```
+
+### 5.10 STOP_LOCAL_POS `0x18`
+
+payload 空。关闭局部位移积分，并把局部坐标清零。下位机先回 ACK `0x80`，随后回 CHASSIS_LOCAL_POS `0x87`，此时坐标通常为 `0, 0`。
+
+```python
+ctl.chassis_stop_local_pos()
+```
+
 ## 6. ARM 指令
 
 ### 6.1 TARGET_XYZ_DIR `0x20`
@@ -314,12 +357,61 @@ uint8 suck_strength
 uint8 reserved
 ```
 
-## 8. Python Controller
+## 8. SHOOTER 指令
+
+射击模块硬件使用 `PB8/TIM16_CH1` 输出摩擦轮 PWM，`PB7` 输出 DRV8701 方向，`UART5(PB13 TX / PB12 RX)` 控制推弹总线舵机。
+
+| 命令 | 值 | payload | 说明 |
+|---|---:|---|---|
+| FIRE | `0x40` | 空 | 执行一次完整射击 |
+| RESET | `0x41` | 空 | 立即关闭摩擦轮，并让推弹舵机回初始位置 |
+| GET_STATE | `0x42` | 空 | 读取射击模块状态 |
+
+FIRE 收到后，下位机流程为：摩擦轮启动并预热 `SHOOTER_SPINUP_MS`，舵机推到 `SHOOTER_SERVO_PUSH_POS`，摩擦轮关闭，舵机回到 `SHOOTER_SERVO_HOME_POS`，最后发送 `SHOOTER_DONE`。
+
+SHOOTER_STATE `0x88` payload 长度 12：
+
+```text
+uint8 shooter_state
+uint8 friction_on
+uint8 busy
+uint8 reserved
+float duty_percent
+int16 servo_pos
+uint16 pwm_duty
+```
+
+状态枚举：
+
+| 状态 | 值 | 说明 |
+|---|---:|---|
+| IDLE | `0` | 空闲 |
+| SPINUP | `1` | 摩擦轮预热中 |
+| PUSHING | `2` | 舵机推弹中 |
+| RETURNING | `3` | 舵机回位中 |
+| RESETTING | `4` | 复位中 |
+| FAULT | `5` | 故障预留 |
+
+示例：
+
+```python
+ctl.shooter_fire()
+event = ctl.wait_for_event(event_code=0x40, timeout_s=6)
+ctl.shooter_get_state()
+```
+
+紧急关闭摩擦轮并复位舵机：
+
+```python
+ctl.shooter_reset()
+```
+
+## 9. Python Controller
 
 文件：
 
-- `PythonTools/controller.py`
-- `PythonTools/communication.yml`
+- `NANO_Control/controller.py`
+- `NANO_Control/communication.yml`
 
 基本用法：
 
@@ -332,15 +424,24 @@ with NanoController(port="COM8", auto_open=True) as ctl:
     ctl.chassis_brake()
     ctl.arm_target(20, 0, 25, 0)
     ctl.pump_suck()
+    ctl.shooter_fire()
 ```
 
 配置文件里列出了重要参数，包括串口、协议常量、命令号、状态名、底盘映射范围、默认值。后续可以根据实际使用决定保留在 `communication.yml`，或硬编码进 `controller.py`。
 
-## 9. 旧协议说明
+常用射击接口：
+
+| 方法 | 功能 |
+|---|---|
+| `shooter_fire()` | 执行一次射击动作 |
+| `shooter_reset()` | 关闭摩擦轮并让推弹舵机回初始位置 |
+| `shooter_get_state()` | 查询射击模块状态 |
+
+## 10. 旧协议说明
 
 工程中还保留以下通信文件：
 
 - `Code/ChaseNum1_UnifiedProtocol.c/.h`：旧 UART3 统一协议，版本号 `0x02`，包含系统、底盘 RUN、机械臂、文本回包等功能。当前 `Code/ChaseNum1_COM.c` 已切到 NANO UART2。
-- `Code/ChaseNum1_COM.c` 中的 VOFA 解析：用于 UART7 电机 PID 调试，不建议作为正式上位机控制协议。
+- `Code/ChaseNum1_COM.c` 中的 VOFA 解析：用于串口助手电机 PID 调试；当 `NANO_PROTOCOL_UART_SELECT` 选择 UART7 时，UART7 会作为 NANO 协议入口。
 
-当前推荐上位机只使用 NANO UART2 协议，避免 UART2/UART3 两套协议并行造成状态不一致。
+当前推荐上位机只使用 NANO 协议，并让上位机串口选择与 `NANO_PROTOCOL_UART_SELECT` 保持一致，避免多套协议并行造成状态不一致。

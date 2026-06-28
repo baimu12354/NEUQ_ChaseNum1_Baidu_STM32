@@ -5,7 +5,7 @@
 // 气泵默认占空比，范围 0 到 PUMP_PWM_PERIOD_COUNT。
 #define PUMP_DEFAULT_DUTY                   10000U
 // 气泵最长连续工作时间，超时后自动停泵；0 表示不启用超时保护。
-#define PUMP_AUTO_STOP_TIMEOUT_MS           30000U
+#define PUMP_AUTO_STOP_TIMEOUT_MS           0
 // 置 1 后，开启吸附频率检测；检测到吸附成功后只置位状态，不自动关闭气泵。
 #define PUMP_SUCK_DETECT_ENABLE             1U
 //+吸附检测方向枚举：反馈频率小于等于阈值时认为吸附。

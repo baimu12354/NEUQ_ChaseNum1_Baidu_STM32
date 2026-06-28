@@ -47,6 +47,12 @@ int main(void){
 	CN_delay_ms(10);
     //气泵初始化（默认不启动气泵）
 	CN_Pump_init();
+	printf("Pump Init\n");
+	CN_delay_ms(10);
+    //射击模块初始化，默认关闭摩擦轮并让舵机回初始位置。
+    Shooter_Init();
+	printf("Shooter Init\n");
+	CN_delay_ms(10);
 	// 屏幕初始化	
     Menu_init();
     printf("Screen Init\n");

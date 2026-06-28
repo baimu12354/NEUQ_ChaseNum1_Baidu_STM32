@@ -9,7 +9,7 @@ typedef enum{
     CN_UART_2,  //TX:PD5  RX:PD6    //NANO上位机通信
     CN_UART_3,  //TX:PB10 RX:PB11   //上位机通信
     CN_UART_4,  //TX:PC10 RX:PC11   //步进电机1通信
-    CN_UART_5,  //TX:PB12 RX:PB13   //步进电机2通信
+    CN_UART_5,  //TX:PB13 RX:PB12   //步进电机2通信
     CN_UART_6,  //TX:PG14 RX:PG9    //步进电机3通信
     CN_UART_7,  //TX:PB4  RX:PB3    //Tof通信
     CN_UART_8,  //TX:PE0  RX:PE1    // 舵机通信

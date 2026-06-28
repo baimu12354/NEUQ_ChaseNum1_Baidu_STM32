@@ -22,6 +22,7 @@ MODULE_SYSTEM = 0x01
 MODULE_CHASSIS = 0x02
 MODULE_ARM = 0x03
 MODULE_PUMP = 0x04
+MODULE_SHOOTER = 0x05
 
 CMD_SYS_HELLO = 0x01
 CMD_SYS_RESET = 0x02
@@ -34,6 +35,9 @@ CMD_CHASSIS_BRAKE = 0x12
 CMD_CHASSIS_ROTATE_TO = 0x13
 CMD_CHASSIS_TRANSLATE_REL = 0x14
 CMD_CHASSIS_GET_STATE = 0x15
+CMD_CHASSIS_START_LOCAL_POS = 0x16
+CMD_CHASSIS_GET_LOCAL_POS = 0x17
+CMD_CHASSIS_STOP_LOCAL_POS = 0x18
 
 CMD_ARM_TARGET_XYZ_DIR = 0x20
 CMD_ARM_FOLD_HOME = 0x21
@@ -44,6 +48,10 @@ CMD_PUMP_SUCK = 0x30
 CMD_PUMP_RELEASE = 0x31
 CMD_PUMP_GET_STATE = 0x32
 
+CMD_SHOOTER_FIRE = 0x40
+CMD_SHOOTER_RESET = 0x41
+CMD_SHOOTER_GET_STATE = 0x42
+
 RESP_ACK = 0x80
 RESP_NACK = 0x81
 RESP_STATUS = 0x82
@@ -51,12 +59,15 @@ RESP_EVENT = 0x83
 RESP_ARM_POSE = 0x84
 RESP_CHASSIS_STATE = 0x85
 RESP_PUMP_STATE = 0x86
+RESP_CHASSIS_LOCAL_POS = 0x87
+RESP_SHOOTER_STATE = 0x88
 
 MODULE_NAMES = {
     MODULE_SYSTEM: "SYSTEM",
     MODULE_CHASSIS: "CHASSIS",
     MODULE_ARM: "ARM",
     MODULE_PUMP: "PUMP",
+    MODULE_SHOOTER: "SHOOTER",
 }
 
 RESP_NAMES = {
@@ -67,12 +78,15 @@ RESP_NAMES = {
     RESP_ARM_POSE: "ARM_POSE",
     RESP_CHASSIS_STATE: "CHASSIS_STATE",
     RESP_PUMP_STATE: "PUMP_STATE",
+    RESP_CHASSIS_LOCAL_POS: "CHASSIS_LOCAL_POS",
+    RESP_SHOOTER_STATE: "SHOOTER_STATE",
 }
 
 SYS_STATES = ["INIT", "RET", "IDLE", "ACTIVE", "ESTOP", "FAULT"]
 CHASSIS_STATES = ["IDLE", "RUN", "ROTATE", "TRANSLATE", "STOP", "BRAKE", "FAULT"]
 ARM_STATES = ["IDLE", "MOVING", "FOLDING", "HOLD", "REJECTED", "FAULT"]
 PUMP_STATES = ["IDLE", "SUCKING", "SUCKED", "RELEASING", "RELEASED", "FAULT"]
+SHOOTER_STATES = ["IDLE", "SPINUP", "PUSHING", "RETURNING", "RESETTING", "FAULT"]
 
 EVENT_NAMES = {
     0x01: "SYS_READY",
@@ -86,6 +100,10 @@ EVENT_NAMES = {
     0x22: "ARM_REJECTED",
     0x30: "PUMP_SUCK_DONE",
     0x31: "PUMP_RELEASE_DONE",
+    0x32: "PUMP_TIMEOUT_STOP",
+    0x40: "SHOOTER_DONE",
+    0x41: "SHOOTER_RESET_DONE",
+    0x42: "SHOOTER_TIMEOUT",
 }
 
 ERR_NAMES = {
@@ -325,6 +343,35 @@ class NanoProtocolUI:
         ttk.Label(frame, text=title, style="CardTitle.TLabel").pack(anchor="w", pady=(0, 8))
         return frame
 
+    def make_scroll_area(self, parent):
+        canvas = tk.Canvas(parent, bg="#0f172a", highlightthickness=0, bd=0)
+        scrollbar = ttk.Scrollbar(parent, orient="vertical", command=canvas.yview)
+        content = ttk.Frame(canvas)
+        window_id = canvas.create_window((0, 0), window=content, anchor="nw")
+
+        canvas.configure(yscrollcommand=scrollbar.set)
+        canvas.pack(side="left", fill="both", expand=True)
+        scrollbar.pack(side="right", fill="y")
+
+        def update_scroll_region(_event=None):
+            canvas.configure(scrollregion=canvas.bbox("all"))
+
+        def fit_content_width(event):
+            canvas.itemconfigure(window_id, width=event.width)
+
+        content.bind("<Configure>", update_scroll_region)
+        canvas.bind("<Configure>", fit_content_width)
+        return content, canvas
+
+    def bind_scroll_wheel(self, widget, canvas):
+        def scroll_with_wheel(event):
+            step = -1 if event.delta > 0 else 1
+            canvas.yview_scroll(step * 3, "units")
+
+        widget.bind("<MouseWheel>", scroll_with_wheel, add="+")
+        for child in widget.winfo_children():
+            self.bind_scroll_wheel(child, canvas)
+
     def build_ui(self):
         top = ttk.Frame(self.root, padding=(18, 14))
         top.grid(row=0, column=0, columnspan=3, sticky="ew")
@@ -344,10 +391,10 @@ class NanoProtocolUI:
         self.conn_var = tk.StringVar(value="未连接")
         ttk.Label(top, textvariable=self.conn_var).grid(row=0, column=8, sticky="e")
 
-        left = ttk.Frame(self.root, padding=(18, 0, 8, 18))
+        left_outer = ttk.Frame(self.root, padding=(18, 0, 8, 18))
         center = ttk.Frame(self.root, padding=(8, 0, 8, 18))
         right = ttk.Frame(self.root, padding=(8, 0, 18, 18))
-        left.grid(row=1, column=0, sticky="nsew")
+        left_outer.grid(row=1, column=0, sticky="nsew")
         center.grid(row=1, column=1, sticky="nsew")
         right.grid(row=1, column=2, sticky="nsew")
         self.root.columnconfigure(0, weight=0, minsize=360)
@@ -355,7 +402,9 @@ class NanoProtocolUI:
         self.root.columnconfigure(2, weight=0, minsize=390)
         self.root.rowconfigure(1, weight=1)
 
+        left, left_canvas = self.make_scroll_area(left_outer)
         self.build_controls(left)
+        self.bind_scroll_wheel(left, left_canvas)
         self.build_visual(center)
         self.build_status_and_log(right)
 
@@ -369,6 +418,14 @@ class NanoProtocolUI:
             ("ESTOP", lambda: self.send(MODULE_SYSTEM, CMD_SYS_ESTOP), "Danger.TButton"),
         ])
 
+        shooter = self.card(parent, "射击")
+        shooter.pack(fill="x", pady=(0, 10))
+        self.button_row(shooter, [
+            ("射击", lambda: self.send(MODULE_SHOOTER, CMD_SHOOTER_FIRE), "Accent.TButton"),
+            ("复位", lambda: self.send(MODULE_SHOOTER, CMD_SHOOTER_RESET), "Danger.TButton"),
+            ("读取", lambda: self.send(MODULE_SHOOTER, CMD_SHOOTER_GET_STATE)),
+        ])
+
         chassis = self.card(parent, "底盘")
         chassis.pack(fill="x", pady=(0, 10))
         self.entry_grid(chassis, [
@@ -379,6 +436,9 @@ class NanoProtocolUI:
             ("STOP", lambda: self.send(MODULE_CHASSIS, CMD_CHASSIS_STOP)),
             ("刹停 BRAKE", self.send_brake, "Danger.TButton"),
             ("GET", lambda: self.send(MODULE_CHASSIS, CMD_CHASSIS_GET_STATE)),
+            ("开始积分", lambda: self.send(MODULE_CHASSIS, CMD_CHASSIS_START_LOCAL_POS)),
+            ("位置查询", lambda: self.send(MODULE_CHASSIS, CMD_CHASSIS_GET_LOCAL_POS)),
+            ("关闭积分", lambda: self.send(MODULE_CHASSIS, CMD_CHASSIS_STOP_LOCAL_POS)),
         ])
         ttk.Label(chassis, text="方向键平移，Q/E 旋转，Space 普通停止，B 刹停", style="CardText.TLabel").pack(anchor="w", pady=(8, 0))
 
@@ -416,7 +476,7 @@ class NanoProtocolUI:
         ])
 
         pump = self.card(parent, "气泵")
-        pump.pack(fill="x")
+        pump.pack(fill="x", pady=(0, 10))
         self.button_row(pump, [
             ("吸附", lambda: self.send(MODULE_PUMP, CMD_PUMP_SUCK), "Accent.TButton"),
             ("放下", lambda: self.send(MODULE_PUMP, CMD_PUMP_RELEASE)),
@@ -439,12 +499,15 @@ class NanoProtocolUI:
         ttk.Button(refresh, text="底盘", command=lambda: self.send(MODULE_CHASSIS, CMD_CHASSIS_GET_STATE)).pack(side="left", expand=True, fill="x", padx=3)
         ttk.Button(refresh, text="机械臂", command=lambda: self.send(MODULE_ARM, CMD_ARM_GET_POSE)).pack(side="left", expand=True, fill="x", padx=3)
         ttk.Button(refresh, text="气泵", command=lambda: self.send(MODULE_PUMP, CMD_PUMP_GET_STATE)).pack(side="left", expand=True, fill="x", padx=3)
+        ttk.Button(refresh, text="射击", command=lambda: self.send(MODULE_SHOOTER, CMD_SHOOTER_GET_STATE)).pack(side="left", expand=True, fill="x", padx=3)
 
         for key, label in [
             ("system", "系统"),
             ("chassis", "底盘"),
             ("arm", "机械臂"),
             ("pump", "气泵"),
+            ("shooter", "射击"),
+            ("local_pos", "局部坐标"),
             ("yaw", "航向角"),
             ("tick", "下位机时间"),
         ]:
@@ -680,23 +743,31 @@ class NanoProtocolUI:
                 self.send(MODULE_ARM, CMD_ARM_GET_POSE)
             if event_module == MODULE_SYSTEM:
                 self.send(MODULE_SYSTEM, CMD_SYS_GET_STATUS)
+            if event_module == MODULE_SHOOTER:
+                self.send(MODULE_SHOOTER, CMD_SHOOTER_GET_STATE)
         elif cmd == RESP_STATUS and len(payload) >= 16:
             self.update_status(payload)
         elif cmd == RESP_ARM_POSE and len(payload) >= 36:
             self.update_arm_pose(payload)
         elif cmd == RESP_CHASSIS_STATE and len(payload) >= 22:
             self.update_chassis_state(payload)
+        elif cmd == RESP_CHASSIS_LOCAL_POS and len(payload) >= 8:
+            self.update_chassis_local_pos(payload)
         elif cmd == RESP_PUMP_STATE and len(payload) >= 10:
             self.update_pump_state(payload)
+        elif cmd == RESP_SHOOTER_STATE and len(payload) >= 12:
+            self.update_shooter_state(payload)
 
     def update_status(self, payload):
         sys_s, chassis_s, arm_s, pump_s, movement, pump_on, sucked, arm_busy = payload[:8]
         tick = struct.unpack_from("<I", payload, 8)[0]
         yaw = read_f32(payload, 12)
+        shooter_s = payload[16] if len(payload) >= 17 else 0
         self.status_vars["system"].set(state_name(SYS_STATES, sys_s))
         self.status_vars["chassis"].set(f"{state_name(CHASSIS_STATES, chassis_s)} / movement={movement}")
         self.status_vars["arm"].set(f"{state_name(ARM_STATES, arm_s)} / busy={arm_busy}")
         self.status_vars["pump"].set(f"{state_name(PUMP_STATES, pump_s)} / on={pump_on} sucked={sucked}")
+        self.status_vars["shooter"].set(state_name(SHOOTER_STATES, shooter_s))
         self.status_vars["yaw"].set(f"{yaw:.2f} deg")
         self.status_vars["tick"].set(f"{tick} ms")
 
@@ -715,12 +786,27 @@ class NanoProtocolUI:
         self.status_vars["yaw"].set(f"{yaw:.2f} deg")
         self.log("PARSE", f"CHASSIS yaw={yaw:.2f} vx={vx:.2f} vy={vy:.2f} wz={wz:.2f} dist_cm={distance:.2f}")
 
+    def update_chassis_local_pos(self, payload):
+        x_cm, y_cm = struct.unpack_from("<ff", payload, 0)
+        self.status_vars["local_pos"].set(f"X={x_cm:.2f} cm / Y={y_cm:.2f} cm")
+        self.log("PARSE", f"CHASSIS local_pos x={x_cm:.2f}cm y={y_cm:.2f}cm")
+
     def update_pump_state(self, payload):
         pump_state, pump_on, sucked, _ = payload[:4]
         freq = read_f32(payload, 4)
         strength = payload[8]
         self.status_vars["pump"].set(f"{state_name(PUMP_STATES, pump_state)} / on={pump_on} sucked={sucked}")
         self.log("PARSE", f"PUMP state={state_name(PUMP_STATES, pump_state)} on={pump_on} sucked={sucked} freq={freq:.2f} strength={strength}")
+
+    def update_shooter_state(self, payload):
+        shooter_state, friction_on, busy, _ = payload[:4]
+        duty_percent = read_f32(payload, 4)
+        servo_pos = struct.unpack_from("<h", payload, 8)[0]
+        pwm_duty = struct.unpack_from("<H", payload, 10)[0]
+        self.status_vars["shooter"].set(
+            f"{state_name(SHOOTER_STATES, shooter_state)} / wheel={friction_on} busy={busy}"
+        )
+        self.log("PARSE", f"SHOOTER state={state_name(SHOOTER_STATES, shooter_state)} wheel={friction_on} busy={busy} duty={duty_percent:.1f}% servo={servo_pos} pwm={pwm_duty}")
 
     def log(self, tag, text):
         timestamp = time.strftime("%H:%M:%S")

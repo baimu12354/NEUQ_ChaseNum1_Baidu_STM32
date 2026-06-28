@@ -1,4 +1,4 @@
-#include "stm32h7xx_hal.h"
+#include "ChaseNum1_Include.h"
 
 /*
     TIM2、5为32位定时器，3、4为16位定时器
@@ -99,6 +99,9 @@ void CN_read_ENC_INC(void){
     ENC_data[1]=-ENC_data[1];
     ENC_data[2]=-ENC_data[2];
     ENC_data[3]=-ENC_data[3];
+
+    //+每读取到一组新的编码器增量，就同步更新底盘局部位移积分；未开启积分时函数内部会直接返回。
+    CN_Chassis_Update_Local_Position_From_Enc(ENC_data);
 
     //printf("%d,%d,%d,%d\n",-ENC_data[3],-ENC_data[2],-ENC_data[0],-ENC_data[1]);
     

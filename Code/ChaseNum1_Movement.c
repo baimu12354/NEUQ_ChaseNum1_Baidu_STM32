@@ -18,6 +18,13 @@ static void CN_Chassis_Enter_Rotation(Car_Movement_struct movement);
 static void CN_Chassis_Enter_Translation(Car_Movement_struct movement);
 static void CN_Chassis_Finish_To_Run(float yaw_hold);
 
+static uint8_t g_chassis_local_pos_active = 0U; //+局部位移积分是否开启
+static float g_chassis_local_pos_start_yaw = 0.0f; //+开启积分时记录的 yaw，该方向作为局部坐标系 +Y
+static float g_chassis_local_pos_last_yaw = 0.0f; //+上一帧 yaw，用于计算连续角度增量
+static float g_chassis_local_pos_yaw_acc = 0.0f; //+从开启积分开始累计的连续 yaw 变化量，避免正负 180 度跳变
+static float g_chassis_local_x = 0.0f;       //+相对开启积分位置的局部 X 位移，单位为下位机内部位移量
+static float g_chassis_local_y = 0.0f;       //+相对开启积分位置的局部 Y 位移，单位为下位机内部位移量
+
 // 浮点限幅，max_abs 必须为正数。
 static float CN_Chassis_Limit_Float(float value, float max_abs)
 {
@@ -256,6 +263,83 @@ void CN_Intr_Movement(void)
 Movement_type_ENUM CN_Chassis_Get_Movement_Type(void)
 {
     return Whole_Movement_Type;
+}
+
+//+开启局部位移积分：把当前 yaw 记录为局部坐标系 +Y 方向，并清零局部坐标。
+void CN_Chassis_Start_Local_Position_Integration(void)
+{
+    g_chassis_local_pos_start_yaw = YAW_now;
+    g_chassis_local_pos_last_yaw = YAW_now;
+    g_chassis_local_pos_yaw_acc = 0.0f;
+    g_chassis_local_x = 0.0f;
+    g_chassis_local_y = 0.0f;
+    g_chassis_local_pos_active = 1U;
+}
+
+//+关闭局部位移积分：停止累计，并清零局部坐标。
+void CN_Chassis_Stop_Local_Position_Integration(void)
+{
+    g_chassis_local_pos_active = 0U;
+    g_chassis_local_pos_start_yaw = YAW_now;
+    g_chassis_local_pos_last_yaw = YAW_now;
+    g_chassis_local_pos_yaw_acc = 0.0f;
+    g_chassis_local_x = 0.0f;
+    g_chassis_local_y = 0.0f;
+}
+
+//+读取局部位移积分，允许调用者传入 NULL 跳过某个坐标。
+void CN_Chassis_Get_Local_Position(float *x, float *y)
+{
+    if (x != NULL) {
+        *x = g_chassis_local_x;
+    }
+    if (y != NULL) {
+        *y = g_chassis_local_y;
+    }
+}
+
+//+用四轮编码器增量合成车体系位移，再按连续累计 yaw 旋转到局部坐标系。
+void CN_Chassis_Update_Local_Position_From_Enc(const int32_t enc_data[4])
+{
+    float fl_delta = 0.0f;
+    float fr_delta = 0.0f;
+    float bl_delta = 0.0f;
+    float br_delta = 0.0f;
+    float delta_x_body = 0.0f;
+    float delta_y_body = 0.0f;
+    float yaw_step_deg = 0.0f;
+    float yaw_delta_rad = 0.0f;
+    float cos_yaw = 1.0f;
+    float sin_yaw = 0.0f;
+    float delta_x_local = 0.0f;
+    float delta_y_local = 0.0f;
+
+    if ((enc_data == NULL) || (g_chassis_local_pos_active == 0U)) {
+        return;
+    }
+
+    fl_delta = (float)enc_data[3];
+    fr_delta = (float)enc_data[1];
+    bl_delta = (float)enc_data[2];
+    br_delta = (float)enc_data[0];
+
+    delta_x_body = ((fl_delta - fr_delta - bl_delta + br_delta) / 4.0f) / M_TO_ENC_FACTOR;
+    delta_y_body = ((fl_delta + fr_delta + bl_delta + br_delta) / 4.0f) / M_TO_ENC_FACTOR;
+
+    //+不能直接使用“起始 yaw 到当前 yaw”的最短角，否则经过正负 180 度边界时会突然翻符号。
+    yaw_step_deg = CN_get_relative_angle(g_chassis_local_pos_last_yaw, YAW_now);
+    g_chassis_local_pos_yaw_acc += yaw_step_deg;
+    g_chassis_local_pos_last_yaw = YAW_now;
+
+    yaw_delta_rad = g_chassis_local_pos_yaw_acc * 0.0174532925f;
+    cos_yaw = cosf(yaw_delta_rad);
+    sin_yaw = sinf(yaw_delta_rad);
+
+    //+本工程内部 yaw 正方向与数学坐标正方向相反，车体系位移旋转到起始局部坐标系时需要使用 -yaw。
+    delta_x_local = delta_x_body * cos_yaw + delta_y_body * sin_yaw;
+    delta_y_local = -delta_x_body * sin_yaw + delta_y_body * cos_yaw;
+    g_chassis_local_x += delta_x_local;
+    g_chassis_local_y += delta_y_local;
 }
 
 // 运动回调函数，建议 1ms 调用一次。

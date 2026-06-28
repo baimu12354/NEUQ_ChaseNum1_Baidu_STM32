@@ -33,6 +33,15 @@ extern Pos_struct start_pose;
 extern float cur_x;
 extern float cur_y;
 
+//+开启底盘局部位移积分：清零坐标，并记录当前 yaw 作为局部坐标系 +Y 方向。
+void CN_Chassis_Start_Local_Position_Integration(void);
+//+关闭底盘局部位移积分：停止累计，并把局部坐标清零。
+void CN_Chassis_Stop_Local_Position_Integration(void);
+//+读取底盘局部位移积分，输出为下位机内部位移单位，协议层再换算成 cm。
+void CN_Chassis_Get_Local_Position(float *x, float *y);
+//+根据本次编码器增量更新底盘局部位移积分，方向和系数与定向平移位置环一致。
+void CN_Chassis_Update_Local_Position_From_Enc(const int32_t enc_data[4]);
+
 // 运动模块初始化
 void CN_move_init(void);
 // 外部调用函数的接口

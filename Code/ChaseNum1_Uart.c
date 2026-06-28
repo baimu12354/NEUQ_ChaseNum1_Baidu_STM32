@@ -221,13 +221,22 @@ void CN_UART4_init(uint32_t baud){
 void CN_UART5_init(void){
     GPIO_InitTypeDef GPIO_Initure={0};
 
-    __HAL_RCC_GPIOB_CLK_ENABLE();
-    GPIO_Initure.Pin=GPIO_PIN_12|GPIO_PIN_13;
 	GPIO_Initure.Mode=GPIO_MODE_AF_PP;      //复用模式
 	GPIO_Initure.Pull=GPIO_PULLUP;              //上拉
 	GPIO_Initure.Speed=GPIO_SPEED_FREQ_HIGH;    //高速
-    GPIO_Initure.Alternate=GPIO_AF14_UART5;
-	HAL_GPIO_Init(GPIOB,&GPIO_Initure);
+    GPIO_Initure.Alternate=GPIO_AF8_UART5;
+
+    //+UART5 使用硬件板子实际引脚：TX5=PC12，RX5=PD2。
+    __HAL_RCC_GPIOC_CLK_ENABLE();
+    __HAL_RCC_GPIOD_CLK_ENABLE();
+
+    //+PC12 复用为 UART5_TX。
+    GPIO_Initure.Pin=GPIO_PIN_12;
+	HAL_GPIO_Init(GPIOC,&GPIO_Initure);
+
+    //+PD2 复用为 UART5_RX。
+    GPIO_Initure.Pin=GPIO_PIN_2;
+	HAL_GPIO_Init(GPIOD,&GPIO_Initure);
 
     __HAL_RCC_UART5_CLK_ENABLE();
 	UART5_Handle.Instance=UART5;					    //USART1

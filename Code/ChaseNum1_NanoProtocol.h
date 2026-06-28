@@ -24,6 +24,8 @@ typedef struct {
     uint8_t chassis_state;
     uint8_t arm_state;
     uint8_t pump_state;
+    //+射击模块协议状态，用于屏幕或上位机诊断当前射击动作阶段。
+    uint8_t shooter_state;
 } Nano_COM_Diag_t;
 
 // NANO 协议初始化，内部使用 UART2。

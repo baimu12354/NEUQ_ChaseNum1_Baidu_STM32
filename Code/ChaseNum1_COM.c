@@ -47,13 +47,6 @@ void Debug_init(void){
 #endif
 }
 
-// // uart1 接收回调 （用于串口助手调试）
-// void CN_UART7_RX_CALLBACK(uint8_t dat)
-// {
-//     // VOFA_Single_Byte_Process(dat);
-// }
-
-
 volatile Motor_Tuning_Params_t motor_tune = {0};
 volatile bool param_updated_flag = 0;
 uint8_t motor_tun_flag = 0;

@@ -68,6 +68,8 @@
 #define NANO_MODULE_ARM                  0x03U
 //+模块 ID：气泵。
 #define NANO_MODULE_PUMP                 0x04U
+//+模块 ID：射击模块。
+#define NANO_MODULE_SHOOTER              0x05U
 
 //+系统命令：握手。
 #define NANO_CMD_SYS_HELLO               0x01U
@@ -90,6 +92,12 @@
 #define NANO_CMD_CHASSIS_TRANSLATE_REL   0x14U
 //+底盘命令：读取底盘状态。
 #define NANO_CMD_CHASSIS_GET_STATE       0x15U
+//+底盘命令：开启局部位移积分，记录当前 yaw 为局部坐标系 +Y 方向。
+#define NANO_CMD_CHASSIS_START_LOCAL_POS  0x16U
+//+底盘命令：读取局部位移积分。
+#define NANO_CMD_CHASSIS_GET_LOCAL_POS    0x17U
+//+底盘命令：关闭局部位移积分，并清零局部坐标。
+#define NANO_CMD_CHASSIS_STOP_LOCAL_POS   0x18U
 
 //+机械臂命令：吸盘末端目标，载荷为 x、y、z、dir 四个 float。
 #define NANO_CMD_ARM_TARGET_XYZ_DIR      0x20U
@@ -107,6 +115,13 @@
 //+气泵命令：读取气泵状态。
 #define NANO_CMD_PUMP_GET_STATE          0x32U
 
+//+射击命令：执行一次完整射击动作。
+#define NANO_CMD_SHOOTER_FIRE            0x40U
+//+射击命令：紧急关闭摩擦轮，并让射击舵机回初始位置。
+#define NANO_CMD_SHOOTER_RESET           0x41U
+//+射击命令：读取射击模块状态。
+#define NANO_CMD_SHOOTER_GET_STATE       0x42U
+
 //+通用响应：命令已接收。
 #define NANO_RESP_ACK                    0x80U
 //+通用响应：命令被拒绝。
@@ -121,6 +136,10 @@
 #define NANO_RESP_CHASSIS_STATE          0x85U
 //+通用响应：气泵状态。
 #define NANO_RESP_PUMP_STATE             0x86U
+//+底盘回包：局部横纵向位移积分，单位为 cm。
+#define NANO_RESP_CHASSIS_LOCAL_POS      0x87U
+//+射击回包：射击模块状态。
+#define NANO_RESP_SHOOTER_STATE          0x88U
 
 //+错误码：无错误。
 #define NANO_ERR_OK                      0x00U
@@ -167,6 +186,12 @@
 #define NANO_EVENT_PUMP_RELEASE_DONE     0x31U
 //+气泵事件：超过最长工作时间后自动停泵。
 #define NANO_EVENT_PUMP_TIMEOUT_STOP     0x32U
+//+射击事件：一次射击动作完成。
+#define NANO_EVENT_SHOOTER_DONE          0x40U
+//+射击事件：射击模块复位完成。
+#define NANO_EVENT_SHOOTER_RESET_DONE    0x41U
+//+射击事件：射击动作超时。
+#define NANO_EVENT_SHOOTER_TIMEOUT       0x42U
 
 //+系统状态：正在初始化。
 #define NANO_SYS_INIT                    0U
@@ -222,6 +247,19 @@
 //+气泵状态：故障预留。
 #define NANO_PUMP_FAULT                  5U
 
+//+射击状态：空闲。
+#define NANO_SHOOTER_IDLE                0U
+//+射击状态：摩擦轮预热中。
+#define NANO_SHOOTER_SPINUP              1U
+//+射击状态：舵机推弹中。
+#define NANO_SHOOTER_PUSHING             2U
+//+射击状态：舵机回初始位置中。
+#define NANO_SHOOTER_RETURNING           3U
+//+射击状态：复位中。
+#define NANO_SHOOTER_RESETTING           4U
+//+射击状态：故障预留。
+#define NANO_SHOOTER_FAULT               5U
+
 typedef struct {
     uint8_t seq;
     uint8_t module;
@@ -271,6 +309,7 @@ static uint8_t g_system_state = NANO_SYS_INIT;
 static uint8_t g_chassis_state = NANO_CHASSIS_IDLE;
 static uint8_t g_arm_state = NANO_ARM_IDLE;
 static uint8_t g_pump_state = NANO_PUMP_IDLE;
+static uint8_t g_shooter_state = NANO_SHOOTER_IDLE;
 
 static uint8_t g_chassis_run_active = 0U;
 static uint32_t g_chassis_last_run_ms = 0U;
@@ -278,9 +317,11 @@ static uint8_t g_chassis_action_seq = 0U;
 
 static uint8_t g_arm_action_seq = 0U;
 static uint8_t g_pump_action_seq = 0U;
+static uint8_t g_shooter_action_seq = 0U;
 static uint8_t g_reset_active = 0U;
 static uint8_t g_reset_arm_wait = 0U;
 static uint8_t g_reset_pump_wait = 0U;
+static uint8_t g_reset_shooter_wait = 0U;
 static uint32_t g_pump_release_start_ms = 0U;
 
 static uint8_t Nano_COM_Calc_Check(uint8_t ver, uint8_t seq, uint8_t module,
@@ -292,8 +333,10 @@ static void Nano_COM_Send_Nack(uint8_t seq, uint8_t module, uint8_t cmd, uint8_t
 static void Nano_COM_Send_Event(uint8_t seq, uint8_t module, uint8_t event, uint8_t state, uint8_t result);
 static void Nano_COM_Send_Status(uint8_t seq);
 static void Nano_COM_Send_Chassis_State(uint8_t seq);
+static void Nano_COM_Send_Chassis_Local_Pos(uint8_t seq);
 static void Nano_COM_Send_Arm_Pose(uint8_t seq);
 static void Nano_COM_Send_Pump_State(uint8_t seq);
+static void Nano_COM_Send_Shooter_State(uint8_t seq);
 static void Nano_COM_Process_Package(const NanoPackage_t *package);
 static uint8_t Nano_COM_System_Allows_Command(uint8_t module, uint8_t cmd);
 static void Nano_COM_Start_Reset(uint8_t seq);
@@ -301,6 +344,7 @@ static void Nano_COM_Update_System_State(void);
 static void Nano_COM_Update_Chassis(void);
 static void Nano_COM_Update_Arm(void);
 static void Nano_COM_Update_Pump(void);
+static void Nano_COM_Update_Shooter(void);
 static void Nano_COM_Reset_Rx_Parser(void);
 static uint8_t Nano_COM_Rx_Ring_Push(uint8_t dat);
 static uint8_t Nano_COM_Rx_Ring_Pop(uint8_t *dat);
@@ -331,6 +375,7 @@ void Nano_COM_Init(void)
     g_chassis_state = NANO_CHASSIS_IDLE;
     g_arm_state = NANO_ARM_IDLE;
     g_pump_state = NANO_PUMP_IDLE;
+    g_shooter_state = NANO_SHOOTER_IDLE;
     g_nano_package_ready = 0U;
     Nano_COM_Reset_Rx_Parser();
     __disable_irq();
@@ -398,6 +443,7 @@ void Nano_COM_Get_Diag(Nano_COM_Diag_t *diag)
     diag->chassis_state = g_chassis_state;
     diag->arm_state = g_arm_state;
     diag->pump_state = g_pump_state;
+    diag->shooter_state = g_shooter_state;
 }
 
 // 主循环任务，处理收包和各模块状态变化。
@@ -421,10 +467,12 @@ void Nano_COM_Task_Loop(void)
 
     Arm_Task_Loop();
     CN_Pump_Task_Loop();
+    Shooter_Task_Loop();
 
     Nano_COM_Update_Chassis();
     Nano_COM_Update_Arm();
     Nano_COM_Update_Pump();
+    Nano_COM_Update_Shooter();
     Nano_COM_Update_System_State();
 }
 
@@ -669,7 +717,7 @@ static void Nano_COM_Send_Event(uint8_t seq, uint8_t module, uint8_t event, uint
 // 发送系统状态快照。
 static void Nano_COM_Send_Status(uint8_t seq)
 {
-    uint8_t payload[16] = {0U};
+    uint8_t payload[17] = {0U};
     uint8_t index = 0U;
 
     payload[index++] = g_system_state;
@@ -683,6 +731,8 @@ static void Nano_COM_Send_Status(uint8_t seq)
     Nano_COM_Put_U32_LE(&payload[index], g_nano_ms);
     index += 4U;
     Nano_COM_Put_Float_LE(&payload[index], YAW_now);
+    index += 4U;
+    payload[index++] = g_shooter_state;
 
     Nano_COM_Send_Frame(NANO_MODULE_SYSTEM, NANO_RESP_STATUS, seq, payload, sizeof(payload));
 }
@@ -727,6 +777,26 @@ static void Nano_COM_Send_Chassis_State(uint8_t seq)
                                                        NANO_UP_TRANS_DIST_MAX_CM));
 
     Nano_COM_Send_Frame(NANO_MODULE_CHASSIS, NANO_RESP_CHASSIS_STATE, seq, payload, sizeof(payload));
+}
+
+//+发送底盘局部位移积分，坐标方向和比例与定向平移一致，回包单位为 cm。
+static void Nano_COM_Send_Chassis_Local_Pos(uint8_t seq)
+{
+    uint8_t payload[8] = {0U};
+    float x_internal = 0.0f;
+    float y_internal = 0.0f;
+
+    CN_Chassis_Get_Local_Position(&x_internal, &y_internal);
+    Nano_COM_Put_Float_LE(&payload[0],
+                          Nano_COM_Unmap_Signed_Linear(x_internal,
+                                                       NANO_DN_TRANS_DIST_MAX,
+                                                       NANO_UP_TRANS_DIST_MAX_CM));
+    Nano_COM_Put_Float_LE(&payload[4],
+                          Nano_COM_Unmap_Signed_Linear(y_internal,
+                                                       NANO_DN_TRANS_DIST_MAX,
+                                                       NANO_UP_TRANS_DIST_MAX_CM));
+
+    Nano_COM_Send_Frame(NANO_MODULE_CHASSIS, NANO_RESP_CHASSIS_LOCAL_POS, seq, payload, sizeof(payload));
 }
 
 // 发送机械臂当前逻辑位姿。
@@ -783,6 +853,32 @@ static void Nano_COM_Send_Pump_State(uint8_t seq)
     payload[index++] = 0U;
 
     Nano_COM_Send_Frame(NANO_MODULE_PUMP, NANO_RESP_PUMP_STATE, seq, payload, sizeof(payload));
+}
+
+//+发送射击模块状态。
+static void Nano_COM_Send_Shooter_State(uint8_t seq)
+{
+    uint8_t payload[12] = {0U};
+    uint8_t index = 0U;
+    float duty_percent = 0.0f;
+    int16_t servo_pos = Shooter_Get_Logic_Servo_Pos();
+
+    if (SHOOTER_PWM_PERIOD_COUNT > 0U) {
+        duty_percent = ((float)Shooter_Get_PWM_Duty() * 100.0f) / (float)SHOOTER_PWM_PERIOD_COUNT;
+    }
+
+    payload[index++] = g_shooter_state;
+    payload[index++] = Shooter_Is_Friction_On();
+    payload[index++] = Shooter_Is_Busy();
+    payload[index++] = 0U;
+    Nano_COM_Put_Float_LE(&payload[index], duty_percent);
+    index += 4U;
+    payload[index++] = (uint8_t)(servo_pos & 0xFF);
+    payload[index++] = (uint8_t)((servo_pos >> 8) & 0xFF);
+    payload[index++] = (uint8_t)(Shooter_Get_PWM_Duty() & 0xFFU);
+    payload[index++] = (uint8_t)((Shooter_Get_PWM_Duty() >> 8) & 0xFFU);
+
+    Nano_COM_Send_Frame(NANO_MODULE_SHOOTER, NANO_RESP_SHOOTER_STATE, seq, payload, sizeof(payload));
 }
 
 // 判断当前系统状态是否允许执行命令。
@@ -851,9 +947,12 @@ static void Nano_COM_Process_Package(const NanoPackage_t *package)
                 g_HostCmd.run_flag = 0U;
                 g_HostCmd.new_cmd_flag = 1U;
                 CN_Pump_Stop();
+                Shooter_Reset();
                 g_chassis_state = NANO_CHASSIS_BRAKE;
                 g_arm_state = NANO_ARM_HOLD;
                 g_pump_state = NANO_PUMP_IDLE;
+                g_shooter_state = NANO_SHOOTER_RESETTING;
+                g_shooter_action_seq = package->seq;
                 g_chassis_run_active = 0U;
                 g_system_state = NANO_SYS_ESTOP;
                 Nano_COM_Send_Ack(package->seq, package->module, package->cmd, g_system_state);
@@ -953,6 +1052,30 @@ static void Nano_COM_Process_Package(const NanoPackage_t *package)
                     break;
                 }
                 Nano_COM_Send_Chassis_State(package->seq);
+            } else if (package->cmd == NANO_CMD_CHASSIS_START_LOCAL_POS) {
+                if (package->len != 0U) {
+                    Nano_COM_Send_Nack(package->seq, package->module, package->cmd, NANO_ERR_BAD_LEN, g_chassis_state);
+                    break;
+                }
+                //+开启局部位移积分：清零坐标，并把当前 yaw 记录为局部坐标系 +Y 方向。
+                CN_Chassis_Start_Local_Position_Integration();
+                Nano_COM_Send_Ack(package->seq, package->module, package->cmd, g_chassis_state);
+                Nano_COM_Send_Chassis_Local_Pos(package->seq);
+            } else if (package->cmd == NANO_CMD_CHASSIS_GET_LOCAL_POS) {
+                if (package->len != 0U) {
+                    Nano_COM_Send_Nack(package->seq, package->module, package->cmd, NANO_ERR_BAD_LEN, g_chassis_state);
+                    break;
+                }
+                Nano_COM_Send_Chassis_Local_Pos(package->seq);
+            } else if (package->cmd == NANO_CMD_CHASSIS_STOP_LOCAL_POS) {
+                if (package->len != 0U) {
+                    Nano_COM_Send_Nack(package->seq, package->module, package->cmd, NANO_ERR_BAD_LEN, g_chassis_state);
+                    break;
+                }
+                //+关闭局部位移积分，位置自动归零。
+                CN_Chassis_Stop_Local_Position_Integration();
+                Nano_COM_Send_Ack(package->seq, package->module, package->cmd, g_chassis_state);
+                Nano_COM_Send_Chassis_Local_Pos(package->seq);
             } else {
                 Nano_COM_Send_Nack(package->seq, package->module, package->cmd, NANO_ERR_BAD_CMD, g_chassis_state);
             }
@@ -1056,6 +1179,40 @@ static void Nano_COM_Process_Package(const NanoPackage_t *package)
             break;
         }
 
+        case NANO_MODULE_SHOOTER: {
+            if (package->cmd == NANO_CMD_SHOOTER_FIRE) {
+                if (package->len != 0U) {
+                    Nano_COM_Send_Nack(package->seq, package->module, package->cmd, NANO_ERR_BAD_LEN, g_shooter_state);
+                    break;
+                }
+                if (Shooter_Start() == 0U) {
+                    Nano_COM_Send_Nack(package->seq, package->module, package->cmd, NANO_ERR_BUSY, g_shooter_state);
+                    break;
+                }
+                g_shooter_state = NANO_SHOOTER_SPINUP;
+                g_shooter_action_seq = package->seq;
+                Nano_COM_Send_Ack(package->seq, package->module, package->cmd, g_shooter_state);
+            } else if (package->cmd == NANO_CMD_SHOOTER_RESET) {
+                if (package->len != 0U) {
+                    Nano_COM_Send_Nack(package->seq, package->module, package->cmd, NANO_ERR_BAD_LEN, g_shooter_state);
+                    break;
+                }
+                Shooter_Reset();
+                g_shooter_state = NANO_SHOOTER_RESETTING;
+                g_shooter_action_seq = package->seq;
+                Nano_COM_Send_Ack(package->seq, package->module, package->cmd, g_shooter_state);
+            } else if (package->cmd == NANO_CMD_SHOOTER_GET_STATE) {
+                if (package->len != 0U) {
+                    Nano_COM_Send_Nack(package->seq, package->module, package->cmd, NANO_ERR_BAD_LEN, g_shooter_state);
+                    break;
+                }
+                Nano_COM_Send_Shooter_State(package->seq);
+            } else {
+                Nano_COM_Send_Nack(package->seq, package->module, package->cmd, NANO_ERR_BAD_CMD, g_shooter_state);
+            }
+            break;
+        }
+
         default: {
             Nano_COM_Send_Nack(package->seq, package->module, package->cmd, NANO_ERR_BAD_CMD, g_system_state);
             break;
@@ -1070,8 +1227,10 @@ static void Nano_COM_Start_Reset(uint8_t seq)
     g_reset_active = 1U;
     g_reset_arm_wait = 1U;
     g_reset_pump_wait = 1U;
+    g_reset_shooter_wait = 1U;
 
     CN_Intr_Movement();
+    CN_Chassis_Stop_Local_Position_Integration();
     g_chassis_state = NANO_CHASSIS_IDLE;
     g_chassis_run_active = 0U;
 
@@ -1087,6 +1246,10 @@ static void Nano_COM_Start_Reset(uint8_t seq)
     g_pump_release_start_ms = g_nano_ms;
     g_pump_action_seq = seq;
 
+    Shooter_Reset();
+    g_shooter_state = NANO_SHOOTER_RESETTING;
+    g_shooter_action_seq = seq;
+
 }
 
 // 根据模块忙闲刷新系统总状态。
@@ -1100,7 +1263,9 @@ static void Nano_COM_Update_System_State(void)
     if (g_chassis_state == NANO_CHASSIS_RUN || g_chassis_state == NANO_CHASSIS_ROTATE ||
         g_chassis_state == NANO_CHASSIS_TRANSLATE || g_arm_state == NANO_ARM_MOVING ||
         g_arm_state == NANO_ARM_FOLDING || g_pump_state == NANO_PUMP_SUCKING ||
-        g_pump_state == NANO_PUMP_RELEASING) {
+        g_pump_state == NANO_PUMP_RELEASING || g_shooter_state == NANO_SHOOTER_SPINUP ||
+        g_shooter_state == NANO_SHOOTER_PUSHING || g_shooter_state == NANO_SHOOTER_RETURNING ||
+        g_shooter_state == NANO_SHOOTER_RESETTING) {
         g_system_state = NANO_SYS_ACTIVE;
     } else {
         g_system_state = NANO_SYS_IDLE;
@@ -1193,13 +1358,44 @@ static void Nano_COM_Update_Pump(void)
         }
     }
 
-    if ((g_reset_active != 0U) && (g_reset_arm_wait == 0U) && (g_reset_pump_wait == 0U)) {
+    if ((g_reset_active != 0U) && (g_reset_arm_wait == 0U) && (g_reset_pump_wait == 0U) &&
+        (g_reset_shooter_wait == 0U)) {
         g_reset_active = 0U;
         g_system_state = NANO_SYS_IDLE;
         g_pump_state = NANO_PUMP_IDLE;
+        g_shooter_state = NANO_SHOOTER_IDLE;
         Nano_COM_Send_Event(g_pump_action_seq, NANO_MODULE_SYSTEM,
                             NANO_EVENT_SYS_RESET_DONE, g_system_state, NANO_ERR_OK);
         Nano_COM_Send_Status(g_pump_action_seq);
+    }
+}
+
+//+刷新射击模块事件，并把内部状态同步到 NANO 协议状态。
+static void Nano_COM_Update_Shooter(void)
+{
+    uint8_t event = SHOOTER_EVENT_NONE;
+
+    if (Shooter_Fetch_Event(&event) == 0U) {
+        if (g_shooter_state != NANO_SHOOTER_IDLE && g_shooter_state != NANO_SHOOTER_FAULT) {
+            g_shooter_state = Shooter_Get_State();
+        }
+        return;
+    }
+
+    if (event == SHOOTER_EVENT_DONE) {
+        g_shooter_state = NANO_SHOOTER_IDLE;
+        Nano_COM_Send_Event(g_shooter_action_seq, NANO_MODULE_SHOOTER,
+                            NANO_EVENT_SHOOTER_DONE, g_shooter_state, NANO_ERR_OK);
+    } else if (event == SHOOTER_EVENT_RESET_DONE) {
+        g_shooter_state = NANO_SHOOTER_IDLE;
+        g_reset_shooter_wait = 0U;
+        Nano_COM_Send_Event(g_shooter_action_seq, NANO_MODULE_SHOOTER,
+                            NANO_EVENT_SHOOTER_RESET_DONE, g_shooter_state, NANO_ERR_OK);
+    } else if (event == SHOOTER_EVENT_TIMEOUT) {
+        g_shooter_state = NANO_SHOOTER_IDLE;
+        g_reset_shooter_wait = 0U;
+        Nano_COM_Send_Event(g_shooter_action_seq, NANO_MODULE_SHOOTER,
+                            NANO_EVENT_SHOOTER_TIMEOUT, g_shooter_state, NANO_ERR_TIMEOUT);
     }
 }
 
