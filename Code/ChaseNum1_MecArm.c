@@ -79,17 +79,29 @@ HostCmd_t g_HostCmd;
 // 置 1 使用速度型同步命令；置 0 回退为逐个舵机速度命令。
 #define ARM_USE_SYNC_SERVO_SPEED_CMD   0
 // 0 号云台舵机运动速度，单位 0.1 deg/s。
-#define ARM_SERVO_S0_MOVE_SPEED        4000U
+#define ARM_SERVO_S0_MOVE_SPEED        2000U
 // 1 号多圈舵机运动速度，单位 0.1 deg/s。
 #define ARM_SERVO_S1_MOVE_SPEED        5000U
 // 2 号舵机运动速度，单位 0.1 deg/s。
 #define ARM_SERVO_S2_MOVE_SPEED        1000U
 // 3 号末端舵机运动速度，单位 0.1 deg/s。
 #define ARM_SERVO_S3_MOVE_SPEED        1000U
-// 速度命令的加速时间，单位 ms。
-#define ARM_SERVO_ACCEL_TIME_MS        500U
-// 速度命令的减速时间，单位 ms。
-#define ARM_SERVO_DECEL_TIME_MS        500U
+// 0 号云台舵机速度命令的加速时间，单位 ms。
+#define ARM_SERVO_S0_ACCEL_TIME_MS     1000U
+// 0 号云台舵机速度命令的减速时间，单位 ms。
+#define ARM_SERVO_S0_DECEL_TIME_MS     1000U
+// 1 号多圈舵机速度命令的加速时间，单位 ms。
+#define ARM_SERVO_S1_ACCEL_TIME_MS     500U
+// 1 号多圈舵机速度命令的减速时间，单位 ms。
+#define ARM_SERVO_S1_DECEL_TIME_MS     500U
+// 2 号舵机速度命令的加速时间，单位 ms。
+#define ARM_SERVO_S2_ACCEL_TIME_MS     500U
+// 2 号舵机速度命令的减速时间，单位 ms。
+#define ARM_SERVO_S2_DECEL_TIME_MS     500U
+// 3 号末端舵机速度命令的加速时间，单位 ms。
+#define ARM_SERVO_S3_ACCEL_TIME_MS     200U
+// 3 号末端舵机速度命令的减速时间，单位 ms。
+#define ARM_SERVO_S3_DECEL_TIME_MS     200U
 // 舵机功率限制；0 表示保持舵机固件默认值。 
 #define ARM_SERVO_POWER_LIMIT          10000U
 
@@ -137,18 +149,20 @@ HostCmd_t g_HostCmd;
 #define ARM_FRONT_ROD_Y_CM             25.0f
 // 前方竖直细杆的保守避让半径，最终吸盘末端不得进入该范围，单位 cm。
 #define ARM_FRONT_ROD_RADIUS_CM        0.5f
+//+禁区上方移动时，若当前点或目标点超过该 Y 阈值并跨过 X=0，则仍先折叠避开前方遮挡，单位 cm。
+#define ARM_ABOVE_FORBID_CROSS_FOLD_Y_CM 15.0f
 
 //+梯形禁区近端 Y 坐标，单位 cm，使用严格不等式 3<y。
 #define ARM_FORBID_Y_NEAR_CM           3.0f
 //+梯形禁区远端 Y 坐标，单位 cm，使用严格不等式 y<30。
-#define ARM_FORBID_Y_FAR_CM            30.0f
+#define ARM_FORBID_Y_FAR_CM            40.0f
 //+Y=3cm 时禁区 X 半宽，单位 cm，对应 -5<x<5。
 #define ARM_FORBID_X_HALF_NEAR_CM      9.0f
 //+Y=30cm 时禁区 X 半宽，单位 cm，对应 -50<x<50。
 #define ARM_FORBID_X_HALF_FAR_CM       90.0f
 //+梯形禁区 Z 上边界，单位 cm，使用严格不等式 z<20。
 #define ARM_FORBID_Z_MAX_CM            20.0f
-#define ARM_FORBID_ABOVE_SAFE_MARGIN_CM 2.0f
+#define ARM_FORBID_ABOVE_SAFE_MARGIN_CM 1.0f
 //+云台角度禁区额外余量，单位 deg；目标云台角落入禁区方向时先收敛再展开。
 #define ARM_FORBID_BASE_MARGIN_DEG     0.0f
 
@@ -269,11 +283,12 @@ static uint32_t Arm_Clamp_U32(uint32_t value, uint32_t min_value, uint32_t max_v
 }
 
 // 根据单个舵机角度变化和速度估算运动耗时，速度单位为 0.1 deg/s。
-static uint32_t Arm_Estimate_Servo_Move_Ms(float delta_deg, uint16_t speed)
+static uint32_t Arm_Estimate_Servo_Move_Ms(float delta_deg, uint16_t speed,
+                                           uint16_t accel_time, uint16_t decel_time)
 {
     float abs_delta = Arm_Abs_Float(delta_deg);
     uint32_t move_ms = 0U;
-    uint32_t ramp_ms = (uint32_t)ARM_SERVO_ACCEL_TIME_MS + (uint32_t)ARM_SERVO_DECEL_TIME_MS;
+    uint32_t ramp_ms = (uint32_t)accel_time + (uint32_t)decel_time;
 
     if (speed == 0U) {
         return ARM_PHASE_MAX_INTERVAL_MS;
@@ -476,13 +491,21 @@ static uint32_t Arm_Estimate_Phase_Wait_Ms(const ArmJointPose_t *from, const Arm
     Arm_Map_To_Servo_Angles(to->th0, to->th1, to->th2, to->th3,
                             &to_s0, &to_s1, &to_s2, &to_s3);
 
-    wait_ms = Arm_Clamp_U32(Arm_Estimate_Servo_Move_Ms(to_s0 - from_s0, ARM_SERVO_S0_MOVE_SPEED),
+    wait_ms = Arm_Clamp_U32(Arm_Estimate_Servo_Move_Ms(to_s0 - from_s0, ARM_SERVO_S0_MOVE_SPEED,
+                                                       ARM_SERVO_S0_ACCEL_TIME_MS,
+                                                       ARM_SERVO_S0_DECEL_TIME_MS),
                             wait_ms, ARM_PHASE_MAX_INTERVAL_MS);
-    wait_ms = Arm_Clamp_U32(Arm_Estimate_Servo_Move_Ms(to_s1 - from_s1, ARM_SERVO_S1_MOVE_SPEED),
+    wait_ms = Arm_Clamp_U32(Arm_Estimate_Servo_Move_Ms(to_s1 - from_s1, ARM_SERVO_S1_MOVE_SPEED,
+                                                       ARM_SERVO_S1_ACCEL_TIME_MS,
+                                                       ARM_SERVO_S1_DECEL_TIME_MS),
                             wait_ms, ARM_PHASE_MAX_INTERVAL_MS);
-    wait_ms = Arm_Clamp_U32(Arm_Estimate_Servo_Move_Ms(to_s2 - from_s2, ARM_SERVO_S2_MOVE_SPEED),
+    wait_ms = Arm_Clamp_U32(Arm_Estimate_Servo_Move_Ms(to_s2 - from_s2, ARM_SERVO_S2_MOVE_SPEED,
+                                                       ARM_SERVO_S2_ACCEL_TIME_MS,
+                                                       ARM_SERVO_S2_DECEL_TIME_MS),
                             wait_ms, ARM_PHASE_MAX_INTERVAL_MS);
-    wait_ms = Arm_Clamp_U32(Arm_Estimate_Servo_Move_Ms(to_s3 - from_s3, ARM_SERVO_S3_MOVE_SPEED),
+    wait_ms = Arm_Clamp_U32(Arm_Estimate_Servo_Move_Ms(to_s3 - from_s3, ARM_SERVO_S3_MOVE_SPEED,
+                                                       ARM_SERVO_S3_ACCEL_TIME_MS,
+                                                       ARM_SERVO_S3_DECEL_TIME_MS),
                             wait_ms, ARM_PHASE_MAX_INTERVAL_MS);
 
     wait_ms += ARM_PHASE_SETTLE_EXTRA_MS;
@@ -553,27 +576,29 @@ static uint8_t Arm_Target_Too_Close_To_Front_Rod(const ArmWorldTarget_t *target)
 // 向四个舵机发送一次同步或回退模式的速度目标命令。
 static void Arm_Send_Servo_Targets(float actual_s0, float actual_s1, float actual_s2, float actual_s3)
 {
-    uint16_t accel_time = ARM_SERVO_ACCEL_TIME_MS;
-    uint16_t decel_time = ARM_SERVO_DECEL_TIME_MS;
     uint16_t power = ARM_SERVO_POWER_LIMIT;
 
 #if ARM_USE_SYNC_SERVO_SPEED_CMD
     Sync_Adv_Single_Speed_t single_targets[3] = {
-        {S0_ID, (int16_t)(actual_s0 * 10.0f), ARM_SERVO_S0_MOVE_SPEED, accel_time, decel_time, power},
-        {S2_ID, (int16_t)(actual_s2 * 10.0f), ARM_SERVO_S2_MOVE_SPEED, accel_time, decel_time, power},
-        {S3_ID, (int16_t)(actual_s3 * 10.0f), ARM_SERVO_S3_MOVE_SPEED, accel_time, decel_time, power}
+        {S0_ID, (int16_t)(actual_s0 * 10.0f), ARM_SERVO_S0_MOVE_SPEED, ARM_SERVO_S0_ACCEL_TIME_MS, ARM_SERVO_S0_DECEL_TIME_MS, power},
+        {S2_ID, (int16_t)(actual_s2 * 10.0f), ARM_SERVO_S2_MOVE_SPEED, ARM_SERVO_S2_ACCEL_TIME_MS, ARM_SERVO_S2_DECEL_TIME_MS, power},
+        {S3_ID, (int16_t)(actual_s3 * 10.0f), ARM_SERVO_S3_MOVE_SPEED, ARM_SERVO_S3_ACCEL_TIME_MS, ARM_SERVO_S3_DECEL_TIME_MS, power}
     };
     Sync_Adv_Multi_Speed_t multi_targets[1] = {
-        {S1_ID, (int32_t)(actual_s1 * 10.0f), ARM_SERVO_S1_MOVE_SPEED, accel_time, decel_time, power}
+        {S1_ID, (int32_t)(actual_s1 * 10.0f), ARM_SERVO_S1_MOVE_SPEED, ARM_SERVO_S1_ACCEL_TIME_MS, ARM_SERVO_S1_DECEL_TIME_MS, power}
     };
 
     Servo_Sync_Adv_Multi_Turn_Speed(multi_targets, 1);
     Servo_Sync_Adv_Single_Turn_Speed(single_targets, 3);
 #else
-    Servo_Advanced_Single_Turn_Speed(S0_ID, (int16_t)(actual_s0 * 10.0f), ARM_SERVO_S0_MOVE_SPEED, accel_time, decel_time, power);
-    Servo_Advanced_Multi_Turn_Speed( S1_ID, (int32_t)(actual_s1 * 10.0f), ARM_SERVO_S1_MOVE_SPEED, accel_time, decel_time, power);
-    Servo_Advanced_Single_Turn_Speed(S2_ID, (int16_t)(actual_s2 * 10.0f), ARM_SERVO_S2_MOVE_SPEED, accel_time, decel_time, power);
-    Servo_Advanced_Single_Turn_Speed(S3_ID, (int16_t)(actual_s3 * 10.0f), ARM_SERVO_S3_MOVE_SPEED, accel_time, decel_time, power);
+    Servo_Advanced_Single_Turn_Speed(S0_ID, (int16_t)(actual_s0 * 10.0f), ARM_SERVO_S0_MOVE_SPEED,
+                                     ARM_SERVO_S0_ACCEL_TIME_MS, ARM_SERVO_S0_DECEL_TIME_MS, power);
+    Servo_Advanced_Multi_Turn_Speed( S1_ID, (int32_t)(actual_s1 * 10.0f), ARM_SERVO_S1_MOVE_SPEED,
+                                     ARM_SERVO_S1_ACCEL_TIME_MS, ARM_SERVO_S1_DECEL_TIME_MS, power);
+    Servo_Advanced_Single_Turn_Speed(S2_ID, (int16_t)(actual_s2 * 10.0f), ARM_SERVO_S2_MOVE_SPEED,
+                                     ARM_SERVO_S2_ACCEL_TIME_MS, ARM_SERVO_S2_DECEL_TIME_MS, power);
+    Servo_Advanced_Single_Turn_Speed(S3_ID, (int16_t)(actual_s3 * 10.0f), ARM_SERVO_S3_MOVE_SPEED,
+                                     ARM_SERVO_S3_ACCEL_TIME_MS, ARM_SERVO_S3_DECEL_TIME_MS, power);
 #endif
 }
 
@@ -770,6 +795,7 @@ static uint8_t Arm_Build_Motion_Plan(const ArmWorldTarget_t *target)
     uint8_t need_fold_path = 0U;
     uint8_t current_above_forbid = 0U;
     uint8_t target_above_forbid = 0U;
+    uint8_t above_front_cross_x = 0U;
 
     if (target == NULL) return 0;
     Arm_Clear_Plan();
@@ -799,8 +825,12 @@ static uint8_t Arm_Build_Motion_Plan(const ArmWorldTarget_t *target)
     current_above_forbid = g_arm_current_valid ?
         Arm_Target_Above_Forbidden_Zone(&g_arm_current_target) : 0U;
     target_above_forbid = Arm_Target_Above_Forbidden_Zone(target);
+    above_front_cross_x = (cross_x_zero &&
+                           g_arm_current_valid &&
+                           (g_arm_current_target.y > ARM_ABOVE_FORBID_CROSS_FOLD_Y_CM ||
+                            target->y > ARM_ABOVE_FORBID_CROSS_FOLD_Y_CM)) ? 1U : 0U;
 
-    if (current_above_forbid && target_above_forbid) {
+    if (current_above_forbid && target_above_forbid && !above_front_cross_x) {
         need_fold_path = 0U;
     }
 

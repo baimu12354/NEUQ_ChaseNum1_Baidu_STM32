@@ -25,16 +25,16 @@
 //TIM16 自动重装载计数值，占空比范围为 0~SHOOTER_PWM_PERIOD_COUNT。
 #define SHOOTER_PWM_PERIOD_COUNT           10000U
 //摩擦轮默认占空比，范围 0~SHOOTER_PWM_PERIOD_COUNT。
-#define SHOOTER_PWM_DEFAULT_DUTY           4000U
+#define SHOOTER_PWM_DEFAULT_DUTY           3000U
 
 //射击舵机总线 ID。
 #define SHOOTER_SERVO_ID                   4U
 //射击舵机初始位置，单位 0.1 度。
-#define SHOOTER_SERVO_HOME_POS             1500
+#define SHOOTER_SERVO_HOME_POS             1650
 //射击舵机推弹位置，单位 0.1 度。
-#define SHOOTER_SERVO_PUSH_POS             0
+#define SHOOTER_SERVO_PUSH_POS             -40
 //射击舵机运动速度，单位 0.1 度/秒。
-#define SHOOTER_SERVO_SPEED                1500U
+#define SHOOTER_SERVO_SPEED                3000U
 //射击舵机加速参数，沿用舵机协议定义。
 #define SHOOTER_SERVO_ACCEL                100U
 //射击舵机减速参数，沿用舵机协议定义。
@@ -43,7 +43,7 @@
 #define SHOOTER_SERVO_POWER                0U
 
 //摩擦轮预热时间，收到射击命令后先等待该时间再推弹。
-#define SHOOTER_SPINUP_MS                  1000U
+#define SHOOTER_SPINUP_MS                  000U
 //舵机运动估算后额外增加的等待裕量。
 #define SHOOTER_SERVO_EXTRA_WAIT_MS        500U
 //复位回位时额外增加的等待裕量。
