@@ -81,7 +81,7 @@ HostCmd_t g_HostCmd;
 // 0 号云台舵机运动速度，单位 0.1 deg/s。
 #define ARM_SERVO_S0_MOVE_SPEED        2000U
 // 1 号多圈舵机运动速度，单位 0.1 deg/s。
-#define ARM_SERVO_S1_MOVE_SPEED        5000U
+#define ARM_SERVO_S1_MOVE_SPEED        6000U
 // 2 号舵机运动速度，单位 0.1 deg/s。
 #define ARM_SERVO_S2_MOVE_SPEED        1000U
 // 3 号末端舵机运动速度，单位 0.1 deg/s。
@@ -93,7 +93,7 @@ HostCmd_t g_HostCmd;
 // 1 号多圈舵机速度命令的加速时间，单位 ms。
 #define ARM_SERVO_S1_ACCEL_TIME_MS     500U
 // 1 号多圈舵机速度命令的减速时间，单位 ms。
-#define ARM_SERVO_S1_DECEL_TIME_MS     500U
+#define ARM_SERVO_S1_DECEL_TIME_MS     1200U
 // 2 号舵机速度命令的加速时间，单位 ms。
 #define ARM_SERVO_S2_ACCEL_TIME_MS     500U
 // 2 号舵机速度命令的减速时间，单位 ms。
@@ -101,7 +101,7 @@ HostCmd_t g_HostCmd;
 // 3 号末端舵机速度命令的加速时间，单位 ms。
 #define ARM_SERVO_S3_ACCEL_TIME_MS     200U
 // 3 号末端舵机速度命令的减速时间，单位 ms。
-#define ARM_SERVO_S3_DECEL_TIME_MS     200U
+#define ARM_SERVO_S3_DECEL_TIME_MS     300U
 // 舵机功率限制；0 表示保持舵机固件默认值。 
 #define ARM_SERVO_POWER_LIMIT          10000U
 
@@ -122,6 +122,10 @@ HostCmd_t g_HostCmd;
 #define ARM_INIT_READ_BASE_ENABLE      1U
 // 初始化读取云台舵机角度的最大等待时间，单位 ms；超时后使用下方假定角度。
 #define ARM_INIT_BASE_READ_TIMEOUT_MS  50U
+//+读取上位机查询位姿时，单个舵机实际角度的最大等待时间，单位 ms；只用于调试查询，不参与运动规划。
+#define ARM_REAL_POSE_READ_ONE_TIMEOUT_MS 30U
+//+读取实际舵机角度时使用的无效占位值，用于判断本次响应是否已经刷新。
+#define ARM_REAL_POSE_INVALID_POSITION 0x7FFFFFFF
 // 初始化读取云台角失败时假定的当前云台虚拟角，单位 deg，建议与实际上电摆放平面一致。
 #define ARM_INIT_FALLBACK_BASE_DEG     ARM_DEFAULT_REST_BASE_DEG
 // 默认休息姿态中 1 号舵机的虚拟角，配合 2 号舵机让第三轴连带臂向下，单位 deg。
@@ -137,7 +141,7 @@ HostCmd_t g_HostCmd;
 // 只有云台角变化小到接近数值噪声时才跳过收敛转平面阶段，单位 deg。
 #define ARM_PLANE_ROTATE_SKIP_DEG      0.05f
 // 每个阶段速度估算后追加的非阻塞等待余量，单位 ms。
-#define ARM_PHASE_SETTLE_EXTRA_MS      500U
+#define ARM_PHASE_SETTLE_EXTRA_MS      -400U
 // 进入下一阶段前的最小非阻塞等待时间，单位 ms。
 #define ARM_PHASE_MIN_INTERVAL_MS      500U
 // 进入下一阶段前的最大非阻塞等待时间，单位 ms。
@@ -150,7 +154,7 @@ HostCmd_t g_HostCmd;
 // 前方竖直细杆的保守避让半径，最终吸盘末端不得进入该范围，单位 cm。
 #define ARM_FRONT_ROD_RADIUS_CM        0.5f
 //+禁区上方移动时，若当前点或目标点超过该 Y 阈值并跨过 X=0，则仍先折叠避开前方遮挡，单位 cm。
-#define ARM_ABOVE_FORBID_CROSS_FOLD_Y_CM 15.0f
+#define ARM_ABOVE_FORBID_CROSS_FOLD_Y_CM 18.0f
 
 //+梯形禁区近端 Y 坐标，单位 cm，使用严格不等式 3<y。
 #define ARM_FORBID_Y_NEAR_CM           3.0f
@@ -162,7 +166,9 @@ HostCmd_t g_HostCmd;
 #define ARM_FORBID_X_HALF_FAR_CM       90.0f
 //+梯形禁区 Z 上边界，单位 cm，使用严格不等式 z<20。
 #define ARM_FORBID_Z_MAX_CM            20.0f
-#define ARM_FORBID_ABOVE_SAFE_MARGIN_CM 1.0f
+#define ARM_FORBID_ABOVE_SAFE_MARGIN_CM 0.0f
+//+当前点和目标点都高于禁区且水平投影半径都小于该值时，允许直接转动，单位 cm。
+#define ARM_HIGH_NEAR_BASE_DIRECT_RADIUS_CM 18.0f
 //+云台角度禁区额外余量，单位 deg；目标云台角落入禁区方向时先收敛再展开。
 #define ARM_FORBID_BASE_MARGIN_DEG     0.0f
 
@@ -231,6 +237,53 @@ static float Arm_Base_Actual_To_Virtual(float actual_s0)
 {
     actual_s0 = Arm_Normalize_Base_Servo_Angle(actual_s0);
     return Arm_Normalize_Deg((actual_s0 - S0_OFFSET) / (S0_GEAR * S0_DIR));
+}
+
+//+将 1 号多圈舵机实际角度反算为机械臂虚拟角，单位 deg。
+static float Arm_S1_Actual_To_Virtual(float actual_s1)
+{
+    return (actual_s1 - S1_OFFSET) / (S1_GEAR * S1_DIR);
+}
+
+//+将 2 号单圈舵机实际角度反算为机械臂虚拟角，单位 deg。
+static float Arm_S2_Actual_To_Virtual(float actual_s2)
+{
+    return (actual_s2 - S2_OFFSET) / (S2_GEAR * S2_DIR);
+}
+
+//+将 3 号末端舵机实际角度反算为机械臂虚拟角，单位 deg。
+static float Arm_S3_Actual_To_Virtual(float actual_s3)
+{
+    return (actual_s3 - S3_OFFSET) / (S3_GEAR * S3_DIR);
+}
+
+//+读取单个舵机的实际角度，返回值单位为 deg；该函数只用于上位机查询位姿调试。
+static uint8_t Arm_Read_Actual_Servo_Angle(uint8_t servo_id, uint8_t multi_turn, float *actual_deg)
+{
+    uint32_t start_tick = 0U;
+    int32_t old_position = 0;
+
+    if (actual_deg == NULL) return 0U;
+
+    old_position = g_ServoInfo[servo_id].position;
+    g_ServoInfo[servo_id].position = ARM_REAL_POSE_INVALID_POSITION;
+
+    if (multi_turn != 0U) {
+        Servo_Read_Multi_Turn_Angle(servo_id);
+    } else {
+        Servo_Read_Single_Turn_Angle(servo_id);
+    }
+
+    start_tick = HAL_GetTick();
+    while ((uint32_t)(HAL_GetTick() - start_tick) < ARM_REAL_POSE_READ_ONE_TIMEOUT_MS) {
+        if (g_ServoInfo[servo_id].position != ARM_REAL_POSE_INVALID_POSITION) {
+            *actual_deg = (float)g_ServoInfo[servo_id].position / 10.0f;
+            return 1U;
+        }
+    }
+
+    g_ServoInfo[servo_id].position = old_position;
+    return 0U;
 }
 
 // 初始化阶段读取当前云台平面；读取失败时由调用者使用保守假定角度。
@@ -562,6 +615,33 @@ static uint8_t Arm_Target_Above_Forbidden_Zone(const ArmWorldTarget_t *target)
     return 0U;
 }
 
+//+判断当前点和目标点是否都处于高位近云台区域；该区域内直接转平面不会扫到前方细杆。
+static uint8_t Arm_Targets_High_And_Near_Base(const ArmWorldTarget_t *target)
+{
+    float current_radius_sq = 0.0f;
+    float target_radius_sq = 0.0f;
+    float limit_radius_sq = 0.0f;
+    float safe_z = ARM_FORBID_Z_MAX_CM + ARM_FORBID_ABOVE_SAFE_MARGIN_CM;
+
+    if (target == NULL || !g_arm_current_valid) return 0U;
+
+    //+只有当前点和目标点都在禁区高度以上时，才允许用近云台半径规则取消折叠。
+    if (g_arm_current_target.z < safe_z || target->z < safe_z) {
+        return 0U;
+    }
+
+    //+比较水平投影半径的平方，避免开平方运算，半径原点为云台中心地面投影。
+    current_radius_sq = g_arm_current_target.x * g_arm_current_target.x +
+                        g_arm_current_target.y * g_arm_current_target.y;
+    target_radius_sq = target->x * target->x + target->y * target->y;
+    limit_radius_sq = ARM_HIGH_NEAR_BASE_DIRECT_RADIUS_CM * ARM_HIGH_NEAR_BASE_DIRECT_RADIUS_CM;
+
+    if (current_radius_sq < limit_radius_sq && target_radius_sq < limit_radius_sq) {
+        return 1U;
+    }
+    return 0U;
+}
+
 static uint8_t Arm_Target_Too_Close_To_Front_Rod(const ArmWorldTarget_t *target)
 {
     if (target == NULL) return 1;
@@ -796,6 +876,7 @@ static uint8_t Arm_Build_Motion_Plan(const ArmWorldTarget_t *target)
     uint8_t current_above_forbid = 0U;
     uint8_t target_above_forbid = 0U;
     uint8_t above_front_cross_x = 0U;
+    uint8_t high_near_base_direct = 0U;
 
     if (target == NULL) return 0;
     Arm_Clear_Plan();
@@ -829,8 +910,14 @@ static uint8_t Arm_Build_Motion_Plan(const ArmWorldTarget_t *target)
                            g_arm_current_valid &&
                            (g_arm_current_target.y > ARM_ABOVE_FORBID_CROSS_FOLD_Y_CM ||
                             target->y > ARM_ABOVE_FORBID_CROSS_FOLD_Y_CM)) ? 1U : 0U;
+    high_near_base_direct = Arm_Targets_High_And_Near_Base(target);
 
     if (current_above_forbid && target_above_forbid && !above_front_cross_x) {
+        need_fold_path = 0U;
+    }
+
+    //+高位近云台区域内，当前点和目标点的水平扫掠半径较小，直接转动不会扫到前方细杆。
+    if (high_near_base_direct) {
         need_fold_path = 0U;
     }
 
@@ -1123,13 +1210,13 @@ void Arm_Task_Loop(void)
     }
 }
 
-//+获取机械臂规划器是否正在执行。
+// 获取机械臂规划器是否正在执行。
 uint8_t Arm_Is_Planner_Active(void)
 {
     return g_arm_plan.active;
 }
 
-//+读取机械臂当前逻辑末端位置和关节角。
+// 读取机械臂当前逻辑末端位置和关节角。
 void Arm_Get_Logical_Pose(float *x, float *y, float *z, float *dir,
                           float *th0, float *th1, float *th2, float *th3)
 {
@@ -1143,7 +1230,74 @@ void Arm_Get_Logical_Pose(float *x, float *y, float *z, float *dir,
     if (th3 != NULL) *th3 = g_arm_current_joint.th3;
 }
 
-//+读取并清除机械臂内部事件。
+//+上位机查询位姿时尝试读取四个舵机真实角度；运动规划仍然只使用逻辑位姿。
+uint8_t Arm_Get_Query_Pose(float *x, float *y, float *z, float *dir,
+                           float *th0, float *th1, float *th2, float *th3)
+{
+    float logical_x = 0.0f;
+    float logical_y = 0.0f;
+    float logical_z = 0.0f;
+    float logical_dir = 0.0f;
+    float logical_th0 = 0.0f;
+    float logical_th1 = 0.0f;
+    float logical_th2 = 0.0f;
+    float logical_th3 = 0.0f;
+    float actual_s0 = 0.0f;
+    float actual_s1 = 0.0f;
+    float actual_s2 = 0.0f;
+    float actual_s3 = 0.0f;
+    ArmJointPose_t real_pose = {0.0f, 0.0f, 0.0f, 0.0f};
+    ArmWorldTarget_t real_target;
+    uint8_t read_ok = 1U;
+
+    Arm_Get_Logical_Pose(&logical_x, &logical_y, &logical_z, &logical_dir,
+                         &logical_th0, &logical_th1, &logical_th2, &logical_th3);
+
+    printf("[ARM POSE] logic xyz=(%.1f, %.1f, %.1f) dir=%.1f th=(%.1f, %.1f, %.1f, %.1f)\r\n",
+           logical_x, logical_y, logical_z, logical_dir,
+           logical_th0, logical_th1, logical_th2, logical_th3);
+
+    //+0、2、3 号舵机为单圈读取，1 号舵机为多圈读取；任一读取失败则回退逻辑位姿。
+    if (!Arm_Read_Actual_Servo_Angle(S0_ID, 0U, &actual_s0)) read_ok = 0U;
+    if (!Arm_Read_Actual_Servo_Angle(S1_ID, 1U, &actual_s1)) read_ok = 0U;
+    if (!Arm_Read_Actual_Servo_Angle(S2_ID, 0U, &actual_s2)) read_ok = 0U;
+    if (!Arm_Read_Actual_Servo_Angle(S3_ID, 0U, &actual_s3)) read_ok = 0U;
+
+    if (read_ok == 0U) {
+        printf("[ARM POSE] real servo read timeout, return logic pose\r\n");
+        if (x != NULL) *x = logical_x;
+        if (y != NULL) *y = logical_y;
+        if (z != NULL) *z = logical_z;
+        if (dir != NULL) *dir = logical_dir;
+        if (th0 != NULL) *th0 = logical_th0;
+        if (th1 != NULL) *th1 = logical_th1;
+        if (th2 != NULL) *th2 = logical_th2;
+        if (th3 != NULL) *th3 = logical_th3;
+        return 0U;
+    }
+
+    real_pose.th0 = Arm_Base_Actual_To_Virtual(actual_s0);
+    real_pose.th1 = Arm_S1_Actual_To_Virtual(actual_s1);
+    real_pose.th2 = Arm_S2_Actual_To_Virtual(actual_s2);
+    real_pose.th3 = Arm_S3_Actual_To_Virtual(actual_s3);
+    real_target = Arm_Forward_Target_From_Pose(&real_pose);
+
+    printf("[ARM POSE] real servo=(%.1f, %.1f, %.1f, %.1f) th=(%.1f, %.1f, %.1f, %.1f)\r\n",
+           actual_s0, actual_s1, actual_s2, actual_s3,
+           real_pose.th0, real_pose.th1, real_pose.th2, real_pose.th3);
+
+    if (x != NULL) *x = real_target.x;
+    if (y != NULL) *y = real_target.y;
+    if (z != NULL) *z = real_target.z;
+    if (dir != NULL) *dir = real_target.dir;
+    if (th0 != NULL) *th0 = real_pose.th0;
+    if (th1 != NULL) *th1 = real_pose.th1;
+    if (th2 != NULL) *th2 = real_pose.th2;
+    if (th3 != NULL) *th3 = real_pose.th3;
+    return 1U;
+}
+
+// 读取并清除机械臂内部事件。
 uint8_t Arm_Fetch_Status_Event(uint8_t *event)
 {
     if (event == NULL) return 0U;

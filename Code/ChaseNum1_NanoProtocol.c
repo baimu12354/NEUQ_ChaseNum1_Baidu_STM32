@@ -799,7 +799,7 @@ static void Nano_COM_Send_Chassis_Local_Pos(uint8_t seq)
     Nano_COM_Send_Frame(NANO_MODULE_CHASSIS, NANO_RESP_CHASSIS_LOCAL_POS, seq, payload, sizeof(payload));
 }
 
-// 发送机械臂当前逻辑位姿。
+// 发送机械臂当前查询位姿；查询时会尝试读取真实舵机角度，失败则回退逻辑位姿。
 static void Nano_COM_Send_Arm_Pose(uint8_t seq)
 {
     uint8_t payload[36] = {0U};
@@ -813,7 +813,7 @@ static void Nano_COM_Send_Arm_Pose(uint8_t seq)
     float th2 = 0.0f;
     float th3 = 0.0f;
 
-    Arm_Get_Logical_Pose(&x, &y, &z, &dir, &th0, &th1, &th2, &th3);
+    (void)Arm_Get_Query_Pose(&x, &y, &z, &dir, &th0, &th1, &th2, &th3);
     payload[index++] = g_arm_state;
     payload[index++] = 0U;
     payload[index++] = Arm_Is_Planner_Active();

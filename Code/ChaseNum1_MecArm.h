@@ -10,15 +10,15 @@
 // 机械臂内部默认休息命令字：回到默认休息姿态。
 #define ARM_HOST_CMD_FOLD 0x02U
 
-//+机械臂没有新的内部事件。
+// 机械臂没有新的内部事件。
 #define ARM_STATUS_EVENT_NONE      0U
-//+机械臂目标动作已经完成。
+// 机械臂目标动作已经完成。
 #define ARM_STATUS_EVENT_DONE      1U
-//+机械臂默认休息动作已经完成。
+// 机械臂默认休息动作已经完成。
 #define ARM_STATUS_EVENT_FOLD_DONE 2U
-//+机械臂命令被拒绝。
+// 机械臂命令被拒绝。
 #define ARM_STATUS_EVENT_REJECTED  3U
-//+机械臂已经停止并锁持。
+// 机械臂已经停止并锁持。
 #define ARM_STATUS_EVENT_STOPPED   4U
 
 // 定义一个全局结构体用于存放外部调度层投递给机械臂任务的命令。
@@ -51,14 +51,18 @@ void Arm_Standalone_Test(void);
 // 机械臂指令轮询
 void Arm_Task_Loop(void); 
 
-//+获取机械臂规划器是否仍在执行。
+// 获取机械臂规划器是否仍在执行。
 uint8_t Arm_Is_Planner_Active(void);
 
-//+读取机械臂当前逻辑末端位置和关节角。
+// 读取机械臂当前逻辑末端位置和关节角。
 void Arm_Get_Logical_Pose(float *x, float *y, float *z, float *dir,
                           float *th0, float *th1, float *th2, float *th3);
 
-//+读取并清除机械臂内部事件。
+//+上位机查询位姿时使用：尝试读取真实舵机角度并返回实际正解位姿，失败时回退逻辑位姿。
+uint8_t Arm_Get_Query_Pose(float *x, float *y, float *z, float *dir,
+                           float *th0, float *th1, float *th2, float *th3);
+
+// 读取并清除机械臂内部事件。
 uint8_t Arm_Fetch_Status_Event(uint8_t *event);
 
 #endif
